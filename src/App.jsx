@@ -3,6 +3,7 @@ import Header from './components/Header';
 import { CPU } from './components/CPU';
 import MMU from './components/MMU';
 import RAM from './components/RAM';
+import Disk from './components/Disk';
 import { Connector, Footer } from './components/Common';
 import Dashboard from './components/Dashboard';
 import Settings from './components/Settings';
@@ -12,6 +13,7 @@ import { SEG_TYPES } from './components/CPU';
 import { allocate, compactMemory } from './logic/memoryAllocation.js';
 import { translate, checkTlb, updateTlb } from './logic/addressTranslation.js';
 import { buildAccessSteps } from './logic/buildSimulationSteps.js';
+import { swapOut, swapIn } from './logic/swapping.js';
 
 // Namespace único para contadores globales
 const COUNTER_NS = 'simulador-segmentacion-simple-utp';
@@ -44,6 +46,11 @@ function App() {
 
   // Lista de huecos libres: [{ start, size }]
   const [holeList, setHoleList] = useState([{ start: 0, size: DEFAULT_RAM_KB }]);
+
+  // Disco (Backing Store): tamaño = 2 × RAM
+  const [diskProcs, setDiskProcs] = useState([]);
+  const [isSwapping, setIsSwapping] = useState(false);
+  const [activeSwapProcId, setActiveSwapProcId] = useState(null);
 
   // TLB
   const [isTlbEnabled, setIsTlbEnabled] = useState(false);
@@ -161,43 +168,76 @@ function App() {
   }, [nextPid, newProcConfig, holeList, allocationAlgo, incrementSimCounter, addLog]);
 
   // ─────────────────────────────────────────────────────
-  // ELIMINAR PROCESO
+  // ELIMINAR PROCESO (termina en RAM, no va al disco)
   // ─────────────────────────────────────────────────────
   const removeProcess = useCallback((id) => {
     const proc = processes.find(p => p.id === id);
     if (!proc) return;
-
-    // Liberar los huecos de sus segmentos
-    let newHoles = [...holeList];
-    for (const seg of proc.segments) {
-      if (seg.base !== null) {
-        newHoles.push({ start: seg.base, size: seg.size });
-      }
-    }
-    // Ordenar y fusionar huecos adyacentes
-    newHoles = mergeHoles(newHoles.sort((a, b) => a.start - b.start));
-
-    setProcesses(prev => prev.filter(p => p.id !== id));
-    setHoleList(newHoles);
+    // Usamos swapOut solo para el cálculo de huecos (sin escribir al disco)
+    const result = swapOut(id, processes, holeList, diskProcs, Infinity);
+    if (!result.ok) { addLog(result.error, 'error'); return; }
+    setProcesses(result.newProcesses);
+    setHoleList(result.newHoleList);
     setTlbEntries(prev => prev.filter(e => e.procId !== id));
     if (selectedProcessId === id) setSelectedProcessId(null);
-    addLog(`Proceso ${id} finalizado. ${proc.totalSize} KB liberados.`, 'warning');
-  }, [processes, holeList, selectedProcessId, addLog]);
+    addLog(`Proceso ${id} terminado. ${proc.totalSize} KB liberados.`, 'warning');
+  }, [processes, holeList, diskProcs, selectedProcessId, addLog]);
 
-  // Fusionar huecos adyacentes
-  function mergeHoles(sorted) {
-    if (sorted.length === 0) return [];
-    const merged = [sorted[0]];
-    for (let i = 1; i < sorted.length; i++) {
-      const last = merged[merged.length - 1];
-      if (last.start + last.size === sorted[i].start) {
-        last.size += sorted[i].size;
-      } else {
-        merged.push(sorted[i]);
-      }
+  // ─────────────────────────────────────────────────────
+  // SWAP OUT — expulsar proceso de RAM al disco
+  // ─────────────────────────────────────────────────────
+  const handleSwapOut = useCallback(async (id) => {
+    if (isSwapping) return;
+    const diskSizeKB = ramSizeKB * 2;
+    setIsSwapping(true);
+    setActiveSwapProcId(id);
+    setFlowAction('RAM_TO_DISK');
+    addLog(`⏳ Swap Out: expulsando proceso ${id} a disco...`, 'warning');
+    await new Promise(r => setTimeout(r, 800));
+
+    const result = swapOut(id, processes, holeList, diskProcs, diskSizeKB);
+    if (!result.ok) {
+      addLog(`❌ Swap Out fallido: ${result.error}`, 'error');
+    } else {
+      setProcesses(result.newProcesses);
+      setHoleList(result.newHoleList);
+      setDiskProcs(result.newDiskProcs);
+      setTlbEntries(prev => prev.filter(e => e.procId !== id));
+      if (selectedProcessId === id) setSelectedProcessId(null);
+      addLog(`✅ Swap Out OK: ${id} en disco. ${result.freedKB} KB liberados en RAM.`, 'success');
     }
-    return merged;
-  }
+
+    setFlowAction(null);
+    setActiveSwapProcId(null);
+    setIsSwapping(false);
+  }, [isSwapping, processes, holeList, diskProcs, ramSizeKB, selectedProcessId, addLog]);
+
+  // ─────────────────────────────────────────────────────
+  // SWAP IN — traer proceso del disco a la RAM
+  // ─────────────────────────────────────────────────────
+  const handleSwapIn = useCallback(async (id) => {
+    if (isSwapping) return;
+    setIsSwapping(true);
+    setActiveSwapProcId(id);
+    setFlowAction('DISK_TO_RAM');
+    addLog(`⏳ Swap In: cargando proceso ${id} desde disco...`, 'warning');
+    await new Promise(r => setTimeout(r, 800));
+
+    const result = swapIn(id, diskProcs, processes, holeList, allocationAlgo);
+    if (!result.ok) {
+      addLog(`❌ Swap In fallido: ${result.error}`, 'error');
+    } else {
+      setProcesses(result.newProcesses);
+      setHoleList(result.newHoleList);
+      setDiskProcs(result.newDiskProcs);
+      setSelectedProcessId(id);
+      addLog(`✅ Swap In OK: ${id} cargado en RAM (${allocationAlgo} Fit).`, 'success');
+    }
+
+    setFlowAction(null);
+    setActiveSwapProcId(null);
+    setIsSwapping(false);
+  }, [isSwapping, diskProcs, processes, holeList, allocationAlgo, addLog]);
 
   // ─────────────────────────────────────────────────────
   // COMPACTACIÓN
@@ -391,6 +431,7 @@ function App() {
   // ─────────────────────────────────────────────────────
   const resetSimulator = useCallback(() => {
     setProcesses([]);
+    setDiskProcs([]);
     setHoleList([{ start: 0, size: ramSizeKB }]);
     setNextPid(1);
     setSelectedProcessId(null);
@@ -404,6 +445,8 @@ function App() {
     setActiveSegNum(null);
     setActiveRamBase(null);
     setIsTranslating(false);
+    setIsSwapping(false);
+    setActiveSwapProcId(null);
     cancelSteps();
   }, [ramSizeKB]);
 
@@ -508,6 +551,23 @@ function App() {
             activeBase={activeRamBase}
             onCompact={handleCompact}
             isCompacting={isCompacting}
+            onSwapOut={handleSwapOut}
+            isSwapping={isSwapping}
+          />
+
+          <Connector
+            active={flowAction === 'RAM_TO_DISK' || flowAction === 'DISK_TO_RAM'}
+            color="#f97316"
+            glow="rgba(249,115,22,0.4)"
+          />
+
+          <Disk
+            diskProcs={diskProcs}
+            diskSizeKB={ramSizeKB * 2}
+            flowAction={flowAction}
+            activeSwapProcId={activeSwapProcId}
+            onSwapIn={handleSwapIn}
+            isSwapping={isSwapping}
           />
         </div>
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Layers } from 'lucide-react';
+import { Layers, ArrowDownToLine } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 /**
@@ -7,8 +7,10 @@ import { motion } from 'framer-motion';
  * La RAM se visualiza como bloques de altura proporcional al tamaño del segmento.
  * Los huecos libres aparecen con un patrón de rayas.
  */
-const RAM = ({ ramBlocks, totalRam, activeBase, onCompact, isCompacting }) => {
+const RAM = ({ ramBlocks, totalRam, activeBase, onCompact, isCompacting, onSwapOut, isSwapping }) => {
   const blockRefs = useRef({});
+  // Rastrear qué procesos ya tienen el botón de Swap Out visible
+  const seenPids = new Set();
 
   useEffect(() => {
     if (activeBase !== null && blockRefs.current[activeBase]) {
@@ -50,6 +52,7 @@ const RAM = ({ ramBlocks, totalRam, activeBase, onCompact, isCompacting }) => {
 
       {/* Address scale */}
       <div className="ram-map" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', height: '430px' }}>
+        {(() => { seenPids.clear(); return null; })()}
         {ramBlocks.map((block, i) => {
           const heightPx = Math.max(block.size * PX_PER_KB, 18);
 
@@ -69,6 +72,10 @@ const RAM = ({ ramBlocks, totalRam, activeBase, onCompact, isCompacting }) => {
 
           // Es un segmento ocupado
           const isActive = activeBase === block.base;
+          // Solo mostramos el botón de Swap Out en el primer segmento del proceso
+          const isFirstOfProc = !seenPids.has(block.procId);
+          if (isFirstOfProc) seenPids.add(block.procId);
+
           return (
             <motion.div
               key={`seg-${block.procId}-${block.segType}-${block.base}`}
@@ -79,9 +86,7 @@ const RAM = ({ ramBlocks, totalRam, activeBase, onCompact, isCompacting }) => {
                 height: `${heightPx}px`,
                 minHeight: '22px',
                 borderLeft: `4px solid ${block.color}`,
-                background: isActive
-                  ? `${block.color}35`
-                  : `${block.color}18`,
+                background: isActive ? `${block.color}35` : `${block.color}18`,
                 boxShadow: isActive ? `0 0 16px ${block.color}55` : 'none',
                 transition: 'all 0.3s ease',
               }}
@@ -107,6 +112,24 @@ const RAM = ({ ramBlocks, totalRam, activeBase, onCompact, isCompacting }) => {
 
               {/* Tamaño */}
               <span style={{ fontSize: '0.6rem', opacity: 0.5, flexShrink: 0 }}>{block.size} KB</span>
+
+              {/* Swap Out (solo en el primer bloque del proceso) */}
+              {isFirstOfProc && onSwapOut && (
+                <button
+                  onClick={() => onSwapOut(block.procId)}
+                  disabled={isSwapping}
+                  title={`Swap Out: expulsar proceso ${block.procId} al disco`}
+                  style={{
+                    marginLeft: '0.4rem', padding: '1px 5px',
+                    background: 'rgba(249,115,22,0.2)', border: '1px solid #f97316',
+                    borderRadius: '4px', color: '#f97316', cursor: isSwapping ? 'not-allowed' : 'pointer',
+                    fontSize: '0.55rem', fontWeight: 700, flexShrink: 0, opacity: isSwapping ? 0.4 : 1,
+                    display: 'flex', alignItems: 'center', gap: '2px', transition: 'all 0.2s',
+                  }}
+                >
+                  <ArrowDownToLine size={9} /> OUT
+                </button>
+              )}
             </motion.div>
           );
         })}

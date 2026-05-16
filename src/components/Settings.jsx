@@ -80,12 +80,20 @@ const Settings = ({ isOpen, onClose, ramSizeKB, setRamSizeKB, onApply }) => {
             <span style={{ color: 'var(--primary)', fontWeight: 700 }}>{localRam} KB</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>Disco (Backing Store):</span>
+            <span style={{ color: '#f97316', fontWeight: 700 }}>{localRam * 2} KB</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span>Tamaño de bloques:</span>
             <span style={{ fontWeight: 600 }}>Variable (por segmento)</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span>Fragmentación:</span>
-            <span style={{ color: 'var(--accent-orange)', fontWeight: 600 }}>Externa</span>
+            <span style={{ color: 'var(--accent-orange, #f97316)', fontWeight: 600 }}>Externa</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span>Swapping:</span>
+            <span style={{ color: '#f97316', fontWeight: 600 }}>Proceso completo</span>
           </div>
         </div>
 

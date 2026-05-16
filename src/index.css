@@ -518,3 +518,69 @@ html.light input[type="number"] { background: #ffffff; border-color: #e2e8f0; co
 
 .trash { color: var(--text-muted); cursor: pointer; transition: color 0.2s; }
 .trash:hover { color: var(--accent-red); }
+
+/* ===================== DISK / SWAP ===================== */
+.disk-node {
+  border-color: var(--accent-orange, #f97316) !important;
+}
+.disk-node.active {
+  border-color: #f97316 !important;
+  box-shadow: 0 0 28px rgba(249,115,22,0.4) !important;
+}
+
+.disk-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.disk-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(249, 115, 22, 0.08);
+  border: 1px solid rgba(249, 115, 22, 0.2);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  transition: all 0.2s;
+}
+.disk-entry:hover { background: rgba(249, 115, 22, 0.14); }
+
+.disk-entry-info { display: flex; flex-direction: column; gap: 0.15rem; }
+.disk-entry-id { font-weight: 700; font-size: 0.75rem; color: var(--text-main); }
+.disk-entry-segs { font-size: 0.6rem; color: var(--text-muted); }
+
+.swap-in-btn {
+  background: #f97316;
+  color: #000;
+  border: none;
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  transition: opacity 0.2s, transform 0.15s;
+}
+.swap-in-btn:hover { opacity: 0.85; transform: scale(1.05); }
+.swap-in-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+.disk-free {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 28px;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  margin-top: 0.4rem;
+}
+
+html.light .disk-entry { background: #fff7ed; border-color: rgba(249,115,22,0.25); }
+html.light .disk-entry-id { color: #7c2d12; }
+html.light .disk-free { background: #f1f5f9; border-color: #cbd5e1; }
