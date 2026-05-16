@@ -88,10 +88,21 @@ h1, h2, h3, .display-font { font-family: 'Outfit', sans-serif; }
 
 .nodes-container {
   display: flex;
-  justify-content: space-between;
   align-items: stretch;
-  gap: 1.5rem;
+  gap: 1rem;
   min-height: 520px;
+  overflow-x: auto;
+  padding-bottom: 0.5rem; /* espacio para scrollbar */
+}
+
+/* Cada nodo principal tiene ancho mínimo para no deformarse */
+.nodes-container > .node {
+  min-width: 240px;
+}
+
+/* Conectores no se encogen */
+.nodes-container > .connector-group {
+  flex-shrink: 0;
 }
 
 /* ===================== NODES ===================== */

@@ -48,6 +48,7 @@ function App() {
   const [holeList, setHoleList] = useState([{ start: 0, size: DEFAULT_RAM_KB }]);
 
   // Disco (Backing Store): tamaño = 2 × RAM
+  const [isSwappingEnabled, setIsSwappingEnabled] = useState(false);
   const [diskProcs, setDiskProcs] = useState([]);
   const [isSwapping, setIsSwapping] = useState(false);
   const [activeSwapProcId, setActiveSwapProcId] = useState(null);
@@ -506,6 +507,7 @@ function App() {
         onOpenSettings={() => setShowSettings(true)}
         onOpenHelp={() => setShowHelp(true)}
         isTlbEnabled={isTlbEnabled} setIsTlbEnabled={setIsTlbEnabled}
+        isSwappingEnabled={isSwappingEnabled} setIsSwappingEnabled={setIsSwappingEnabled}
         stepByStepMode={stepByStepMode} setStepByStepMode={setStepByStepMode}
         allocationAlgo={allocationAlgo} setAllocationAlgo={setAllocationAlgo}
       />
@@ -551,24 +553,28 @@ function App() {
             activeBase={activeRamBase}
             onCompact={handleCompact}
             isCompacting={isCompacting}
-            onSwapOut={handleSwapOut}
+            onSwapOut={isSwappingEnabled ? handleSwapOut : null}
             isSwapping={isSwapping}
           />
 
-          <Connector
-            active={flowAction === 'RAM_TO_DISK' || flowAction === 'DISK_TO_RAM'}
-            color="#f97316"
-            glow="rgba(249,115,22,0.4)"
-          />
+          {isSwappingEnabled && (
+            <>
+              <Connector
+                active={flowAction === 'RAM_TO_DISK' || flowAction === 'DISK_TO_RAM'}
+                color="#f97316"
+                glow="rgba(249,115,22,0.4)"
+              />
 
-          <Disk
-            diskProcs={diskProcs}
-            diskSizeKB={ramSizeKB * 2}
-            flowAction={flowAction}
-            activeSwapProcId={activeSwapProcId}
-            onSwapIn={handleSwapIn}
-            isSwapping={isSwapping}
-          />
+              <Disk
+                diskProcs={diskProcs}
+                diskSizeKB={ramSizeKB * 2}
+                flowAction={flowAction}
+                activeSwapProcId={activeSwapProcId}
+                onSwapIn={handleSwapIn}
+                isSwapping={isSwapping}
+              />
+            </>
+          )}
         </div>
 
         {/* Panel paso a paso */}

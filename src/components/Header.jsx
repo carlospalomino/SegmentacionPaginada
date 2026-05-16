@@ -15,7 +15,7 @@ const ToggleControl = ({ label, active, onChange, activeColor }) => (
   </div>
 );
 
-const AlgoSelector = ({ current, onChange }) => (
+const AlgoSelector = ({ current = 'FIRST', onChange }) => (
   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', padding: '0.2rem 0.5rem' }}>
     <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>ASIGNACIÓN</span>
     <div style={{ display: 'flex', gap: '2px', background: 'var(--bg-soft)', padding: '2px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
@@ -56,6 +56,7 @@ const Header = ({
   segFaults, trapCount,
   resetSimulator, onOpenSettings, onOpenHelp,
   isTlbEnabled, setIsTlbEnabled,
+  isSwappingEnabled, setIsSwappingEnabled,
   stepByStepMode, setStepByStepMode,
   allocationAlgo, setAllocationAlgo,
 }) => {
@@ -96,6 +97,8 @@ const Header = ({
         <AlgoSelector current={allocationAlgo} onChange={setAllocationAlgo} />
         <Divider />
         <ToggleControl label="TLB" active={isTlbEnabled} onChange={setIsTlbEnabled} activeColor="var(--accent-cyan)" />
+        <Divider />
+        <ToggleControl label="SWAPPING" active={isSwappingEnabled} onChange={setIsSwappingEnabled} activeColor="#f97316" />
         <Divider />
         <ToggleControl label="PASO A PASO" active={stepByStepMode} onChange={setStepByStepMode} activeColor="var(--secondary)" />
       </div>
