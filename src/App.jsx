@@ -45,7 +45,10 @@ function App() {
   const [nextPid, setNextPid] = useState(1);
 
   // Config nuevo proceso (tamaño de cada segmento)
-  const [newProcConfig, setNewProcConfig] = useState({ code: 8, data: 4, heap: 6, stack: 5 });
+  const [newProcConfig, setNewProcConfig] = useState({
+    code: 8, data: 4, heap: 6, stack: 5,
+  });
+  const [sharedCodeFrom, setSharedCodeFrom] = useState('');
 
   // Lista de huecos libres: [{ start, size }]
   const [holeList, setHoleList] = useState([{ start: 0, size: DEFAULT_RAM_KB }]);
@@ -122,15 +125,36 @@ function App() {
     const newProcId = `P${nextPid}`;
     const color = PROC_COLORS[(nextPid - 1) % PROC_COLORS.length];
 
+    let targetParentProc = null;
+    if (sharedCodeFrom) {
+      targetParentProc = processes.find(p => p.id === sharedCodeFrom);
+    }
+
     // Construir segmentos
-    const segDefs = SEG_TYPES.map(({ key, type, color: segColor }) => ({
-      segType: type,
-      key,
-      color: segColor,
-      size: newProcConfig[key],
-      limit: newProcConfig[key],
-      base: null,
-    }));
+    const segDefs = SEG_TYPES.map(({ key, type, color: segColor }) => {
+      let size = newProcConfig[key];
+      let limit = size;
+      let preAllocatedBase = null;
+
+      if (targetParentProc && type === 'Código') {
+        const parentCodeSeg = targetParentProc.segments.find(s => s.segType === 'Código');
+        if (parentCodeSeg && parentCodeSeg.base !== null) {
+          size = parentCodeSeg.size;
+          limit = parentCodeSeg.limit;
+          preAllocatedBase = parentCodeSeg.base;
+        }
+      }
+
+      return {
+        segType: type,
+        key,
+        color: segColor,
+        size,
+        limit,
+        base: preAllocatedBase,
+        isShared: preAllocatedBase !== null,
+      };
+    });
 
     const totalSize = segDefs.reduce((acc, s) => acc + s.size, 0);
 
@@ -143,6 +167,11 @@ function App() {
     await new Promise(r => setTimeout(r, 400));
 
     for (const seg of segDefs) {
+      if (seg.isShared) {
+        assignedSegs.push({ ...seg, base: seg.base }); // Ya tiene base física
+        continue;
+      }
+
       const result = allocate(currentHoles, seg.size, allocationAlgo);
       if (!result) {
         failed = true;
@@ -172,9 +201,15 @@ function App() {
     setHoleList(currentHoles);
     setSelectedProcessId(newProcId);
     setNextPid(p => p + 1);
+    setSharedCodeFrom('');
     incrementSimCounter();
-    addLog(`Proceso ${newProcId} cargado en RAM (${totalSize} KB, ${segDefs.length} segmentos, algoritmo: ${allocationAlgo} Fit).`, 'success');
-  }, [nextPid, newProcConfig, holeList, allocationAlgo, incrementSimCounter, addLog]);
+    
+    if (targetParentProc) {
+      addLog(`Proceso ${newProcId} creado reusando Código de ${targetParentProc.id}. RAM extraída: ${totalSize - segDefs.find(s=>s.segType==='Código').size} KB.`, 'success');
+    } else {
+      addLog(`Proceso ${newProcId} cargado en RAM (${totalSize} KB, ${segDefs.length} segmentos, algoritmo: ${allocationAlgo} Fit).`, 'success');
+    }
+  }, [nextPid, newProcConfig, holeList, allocationAlgo, sharedCodeFrom, processes, incrementSimCounter, addLog]);
 
   // ─────────────────────────────────────────────────────
   // ELIMINAR PROCESO (termina en RAM, no va al disco)
@@ -551,26 +586,31 @@ function App() {
     [processes, selectedProcessId]
   );
 
-  // Construir lista de bloques para renderizar en RAM (segmentos + huecos intercalados)
+  // Construir lista de bloques para renderizar en RAM (segmentos agrupados por base + huecos intercalados)
   const ramBlocks = useMemo(() => {
-    const items = [];
-    // Segmentos de todos los procesos
+    const itemsMap = new Map();
     processes.forEach(p => {
       p.segments.forEach(seg => {
         if (seg.base !== null) {
-          items.push({ type: 'seg', ...seg, procId: p.id });
+          if (itemsMap.has(seg.base)) {
+            const existing = itemsMap.get(seg.base);
+            if (!existing.procIds.includes(p.id)) {
+              existing.procIds.push(p.id);
+            }
+          } else {
+            itemsMap.set(seg.base, { type: 'seg', ...seg, procIds: [p.id] });
+          }
         }
       });
     });
-    // Huecos
+    const items = Array.from(itemsMap.values());
     holeList.forEach(h => items.push({ type: 'hole', start: h.start, size: h.size }));
-    // Ordenar por dirección
     return items.sort((a, b) => (a.base ?? a.start) - (b.base ?? b.start));
   }, [processes, holeList]);
 
   const ramUsedKB = useMemo(() =>
-    processes.flatMap(p => p.segments).reduce((acc, s) => acc + (s.base !== null ? s.size : 0), 0),
-    [processes]
+    ramBlocks.filter(b => b.type === 'seg').reduce((acc, s) => acc + s.size, 0),
+    [ramBlocks]
   );
 
   const fragKB = useMemo(() => holeList.reduce((a, h) => a + h.size, 0), [holeList]);
@@ -616,6 +656,8 @@ function App() {
             setOffset={setOffset}
             flowAction={flowAction}
             growSegment={handleGrowSegment}
+            sharedCodeFrom={sharedCodeFrom}
+            setSharedCodeFrom={setSharedCodeFrom}
           />
 
           <Connector active={flowAction === 'CPU_TO_MMU'} color="var(--primary)" glow="var(--primary-glow)" />

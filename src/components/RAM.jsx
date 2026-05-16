@@ -74,14 +74,26 @@ const RAM = ({ ramBlocks, totalRam, activeBase, onCompact, isCompacting, onSwapO
           const isGrowing   = growingBase !== null && growingBase === block.base && growStrategy === 'IN_PLACE';
           const isRelocating = growingBase !== null && growingBase === block.base && growStrategy === 'RELOCATE';
           const isFailing   = growingBase !== null && growingBase === block.base && growStrategy === 'FAIL';
-          const isFirstOfProc = !seenPids.has(block.procId);
-          if (isFirstOfProc) seenPids.add(block.procId);
+          
+          const isFirstOfProc = block.procIds.some(pid => {
+            if (!seenPids.has(pid)) {
+              seenPids.add(pid);
+              return true;
+            }
+            return false;
+          });
+          
+          const procDisplay = block.procIds.length > 1 
+            ? `(${block.procIds.join(', ')})` 
+            : block.procIds[0];
+            
+          const primaryProcId = block.procIds[0];
 
           const extraClass = isGrowing ? 'growing' : isRelocating ? 'relocating' : isFailing ? 'grow-fail' : '';
 
           return (
             <motion.div
-              key={`seg-${block.procId}-${block.segType}-${block.base}`}
+              key={`seg-${block.procIds.join('-')}-${block.segType}-${block.base}`}
               ref={el => { blockRefs.current[block.base] = el; }}
               layout
               className={`seg-block ${isActive ? 'highlight' : ''} ${extraClass}`}
@@ -111,17 +123,17 @@ const RAM = ({ ramBlocks, totalRam, activeBase, onCompact, isCompacting, onSwapO
               </span>
 
               {/* PID */}
-              <span style={{ fontSize: '0.65rem', flex: 1, fontWeight: 600 }}>{block.procId}</span>
+              <span style={{ fontSize: '0.65rem', flex: 1, fontWeight: 600 }}>{procDisplay}</span>
 
               {/* Tamaño */}
               <span style={{ fontSize: '0.6rem', opacity: 0.5, flexShrink: 0 }}>{block.size} KB</span>
 
-              {/* Swap Out (solo en el primer bloque del proceso) */}
+              {/* Swap Out (solo en el primer bloque visualizado de un proceso nuevo) */}
               {isFirstOfProc && onSwapOut && (
                 <button
-                  onClick={() => onSwapOut(block.procId)}
+                  onClick={() => onSwapOut(primaryProcId)}
                   disabled={isSwapping}
-                  title={`Swap Out: expulsar proceso ${block.procId} al disco`}
+                  title={`Swap Out: expulsar proceso ${primaryProcId} al disco`}
                   style={{
                     marginLeft: '0.4rem', padding: '1px 5px',
                     background: 'rgba(249,115,22,0.2)', border: '1px solid #f97316',

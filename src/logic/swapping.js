@@ -37,7 +37,11 @@ export function swapOut(procId, processes, holeList, diskProcs, diskSizeKB) {
   let newHoleList = [...holeList];
   for (const seg of proc.segments) {
     if (seg.base !== null) {
-      newHoleList.push({ start: seg.base, size: seg.size });
+      // Verificar si este segmento físico está siendo compartido con otro proceso activo
+      const isShared = processes.some(p => p.id !== procId && p.segments.some(s => s.base === seg.base));
+      if (!isShared) {
+        newHoleList.push({ start: seg.base, size: seg.size });
+      }
     }
   }
   newHoleList = _mergeHoles(newHoleList.sort((a, b) => a.start - b.start));

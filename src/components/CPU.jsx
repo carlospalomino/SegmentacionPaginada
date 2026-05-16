@@ -47,6 +47,7 @@ const CPU = ({
   activeSegNum, offset, setOffset,
   flowAction,
   growSegment,
+  sharedCodeFrom, setSharedCodeFrom
 }) => {
   const selectedProcess = processes.find(p => p.id === selectedProcessId);
   const [growDelta, setGrowDelta] = useState(4);
@@ -67,21 +68,50 @@ const CPU = ({
         {/* Config nuevo proceso */}
         <div className="input-group">
           <p style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginBottom: '0.6rem', fontWeight: 600 }}>NUEVO PROCESO</p>
+          
+          <div style={{ marginBottom: '0.8rem', padding: '0.4rem', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
+             <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-main)', fontSize: '0.7rem', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  checked={sharedCodeFrom !== ''} 
+                  onChange={e => setSharedCodeFrom(e.target.checked ? (processes[0]?.id || '') : '')} 
+                  disabled={processes.length === 0} 
+                  style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
+                />
+                Compartir Código existente
+             </label>
+             {sharedCodeFrom !== '' && processes.length > 0 && (
+               <select 
+                 value={sharedCodeFrom} 
+                 onChange={e => setSharedCodeFrom(e.target.value)} 
+                 style={{ marginTop: '0.4rem', width: '100%', padding: '0.25rem', background: 'rgba(0,0,0,0.2)', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '4px', fontSize: '0.7rem', outline: 'none' }}
+               >
+                 {processes.map(p => <option key={p.id} value={p.id}>Reutilizar código de {p.id}</option>)}
+               </select>
+             )}
+          </div>
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
             {SEG_TYPES.map(({ type, key, color, defaultSize }) => (
               <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: color, flexShrink: 0 }} />
-                <span style={{ fontSize: '0.7rem', flex: 1, color: 'var(--text-main)' }}>{type}</span>
-                <input
-                  type="number"
-                  min="1"
-                  max="64"
-                  value={newProcConfig[key]}
-                  onChange={e => setNewProcConfig(prev => ({ ...prev, [key]: Number(e.target.value) }))}
-                  style={{ width: '52px', textAlign: 'center', padding: '0.25rem 0.3rem', fontSize: '0.75rem' }}
-                  title={`Tamaño del segmento ${type} en KB`}
-                />
-                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>KB</span>
+                <span style={{ fontSize: '0.7rem', flex: 1, color: 'var(--text-main)', opacity: (sharedCodeFrom !== '' && type === 'Código') ? 0.4 : 1 }}>{type}</span>
+                {sharedCodeFrom !== '' && type === 'Código' ? (
+                  <span style={{ fontSize: '0.65rem', color: 'var(--primary)', fontStyle: 'italic', paddingRight: '0.3rem' }}>Compartido</span>
+                ) : (
+                  <>
+                    <input
+                      type="number"
+                      min="1"
+                      max="64"
+                      value={newProcConfig[key]}
+                      onChange={e => setNewProcConfig(prev => ({ ...prev, [key]: Number(e.target.value) }))}
+                      style={{ width: '52px', textAlign: 'center', padding: '0.25rem 0.3rem', fontSize: '0.75rem' }}
+                      title={`Tamaño del segmento ${type} en KB`}
+                    />
+                    <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>KB</span>
+                  </>
+                )}
               </div>
             ))}
           </div>
