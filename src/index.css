@@ -367,6 +367,15 @@ h1, h2, h3, .display-font { font-family: 'Outfit', sans-serif; }
   background: #1f242c !important;
   transform: scale(1.1) !important;
 }
+html.light .seg-table button {
+  background: #ffffff !important;
+  border: 1px solid #d97706 !important;
+  color: #d97706 !important;
+}
+html.light .seg-table button:hover {
+  background: #fef3c7 !important;
+  transform: scale(1.1) !important;
+}
 .light .seg-table td, .light .seg-table th {
   border-bottom: 1px solid rgba(0,0,0,0.08) !important;
 }
