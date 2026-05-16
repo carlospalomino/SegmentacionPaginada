@@ -626,3 +626,42 @@ html.light input[type="number"] { background: #ffffff; border-color: #e2e8f0; co
 html.light .disk-entry { background: #fff7ed; border-color: rgba(249,115,22,0.25); }
 html.light .disk-entry-id { color: #7c2d12; }
 html.light .disk-free { background: #f1f5f9; border-color: #cbd5e1; }
+
+/* ===================== ACADEMIC SCENARIOS ===================== */
+.scenario-panel {
+  margin-bottom: 1.5rem;
+  border-color: rgba(168, 85, 247, 0.15) !important;
+  background: rgba(17, 24, 39, 0.5) !important;
+}
+.light .scenario-panel {
+  background: #ffffff !important;
+  border-color: rgba(124, 58, 237, 0.2) !important;
+}
+.scenario-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.75rem;
+}
+.scenario-card {
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 0.65rem 0.85rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+.scenario-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+.light .scenario-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  background: #fafafa !important;
+}
+.scenario-card.active {
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.15);
+}
+

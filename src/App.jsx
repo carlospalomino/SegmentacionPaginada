@@ -8,6 +8,7 @@ import { Connector, Footer } from './components/Common';
 import Dashboard from './components/Dashboard';
 import Settings from './components/Settings';
 import HelpModal from './components/HelpModal';
+import Scenarios from './components/Scenarios';
 import { SEG_TYPES } from './constants/segTypes.js';
 
 import { allocate, compactMemory } from './logic/memoryAllocation.js';
@@ -31,6 +32,7 @@ function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [ramSizeKB, setRamSizeKB] = useState(DEFAULT_RAM_KB);
   const [allocationAlgo, setAllocationAlgo] = useState('FIRST');
+  const [activeScenarioId, setActiveScenarioId] = useState(null);
 
   // Contador global
   const [visitCount, setVisitCount] = useState(0);
@@ -116,6 +118,7 @@ function App() {
   // CREAR PROCESO
   // ─────────────────────────────────────────────────────
   const addProcess = useCallback(async () => {
+    setActiveScenarioId(null);
     const newProcId = `P${nextPid}`;
     const color = PROC_COLORS[(nextPid - 1) % PROC_COLORS.length];
 
@@ -177,6 +180,7 @@ function App() {
   // ELIMINAR PROCESO (termina en RAM, no va al disco)
   // ─────────────────────────────────────────────────────
   const removeProcess = useCallback((id) => {
+    setActiveScenarioId(null);
     const proc = processes.find(p => p.id === id);
     if (!proc) return;
     // Usamos swapOut solo para el cálculo de huecos (sin escribir al disco)
@@ -479,6 +483,37 @@ function App() {
   };
 
   // ─────────────────────────────────────────────────────
+  // CARGAR ESCENARIO ACADÉMICO
+  // ─────────────────────────────────────────────────────
+  const handleLoadScenario = useCallback((sc) => {
+    setActiveScenarioId(sc.id);
+    setRamSizeKB(sc.ramSizeKB);
+    setIsSwappingEnabled(sc.isSwappingEnabled);
+    setIsTlbEnabled(sc.isTlbEnabled);
+    setProcesses(JSON.parse(JSON.stringify(sc.processes)));
+    setDiskProcs(JSON.parse(JSON.stringify(sc.diskProcs)));
+    setHoleList(JSON.parse(JSON.stringify(sc.holeList)));
+    setSelectedProcessId(sc.processes[0]?.id || null);
+    setTlbEntries([]);
+    setTlbStats({ hits: 0, accesses: 0 });
+
+    const maxPidNum = Math.max(...sc.processes.map(p => {
+      const match = p.id.match(/\d+/);
+      return match ? parseInt(match[0], 10) : 0;
+    }), 0);
+    setNextPid(maxPidNum + 1);
+
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    setLogs([
+      { id: Date.now() + 1, time, msg: `🎓 Escenario cargado: "${sc.title}"`, type: 'info' },
+      { id: Date.now() + 2, time, msg: sc.description, type: 'warning' }
+    ]);
+
+    setFlowAction(null);
+    cancelSteps();
+  }, []);
+
+  // ─────────────────────────────────────────────────────
   // RESET
   // ─────────────────────────────────────────────────────
   const resetSimulator = useCallback(() => {
@@ -499,6 +534,7 @@ function App() {
     setIsTranslating(false);
     setIsSwapping(false);
     setActiveSwapProcId(null);
+    setActiveScenarioId(null);
     cancelSteps();
   }, [ramSizeKB]);
 
@@ -564,6 +600,8 @@ function App() {
       />
 
       <main className="flow-viewport">
+        <Scenarios onLoadScenario={handleLoadScenario} activeScenarioId={activeScenarioId} />
+        
         <div className="nodes-container">
           <CPU
             processes={processes}
