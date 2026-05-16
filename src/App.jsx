@@ -8,12 +8,13 @@ import { Connector, Footer } from './components/Common';
 import Dashboard from './components/Dashboard';
 import Settings from './components/Settings';
 import HelpModal from './components/HelpModal';
-import { SEG_TYPES } from './components/CPU';
+import { SEG_TYPES } from './constants/segTypes.js';
 
 import { allocate, compactMemory } from './logic/memoryAllocation.js';
 import { translate, checkTlb, updateTlb } from './logic/addressTranslation.js';
 import { buildAccessSteps } from './logic/buildSimulationSteps.js';
 import { swapOut, swapIn } from './logic/swapping.js';
+import { growSegment } from './logic/segmentGrowth.js';
 
 // Namespace único para contadores globales
 const COUNTER_NS = 'simulador-segmentacion-simple-utp';
@@ -76,6 +77,10 @@ function App() {
 
   // Compaction
   const [isCompacting, setIsCompacting] = useState(false);
+
+  // Segment Growth
+  const [growingBase, setGrowingBase] = useState(null);
+  const [growStrategy, setGrowStrategy] = useState(null);
 
   // Modo paso a paso
   const [stepByStepMode, setStepByStepMode] = useState(false);
@@ -239,6 +244,52 @@ function App() {
     setActiveSwapProcId(null);
     setIsSwapping(false);
   }, [isSwapping, diskProcs, processes, holeList, allocationAlgo, addLog]);
+
+  // ─────────────────────────────────────────────────────
+  // CRECER SEGMENTO
+  // ─────────────────────────────────────────────────────
+  const handleGrowSegment = useCallback(async (procId, segIdx, deltaKB) => {
+    if (isTranslating || isCompacting || isSwapping) return;
+    const proc = processes.find(p => p.id === procId);
+    if (!proc) return;
+    const seg = proc.segments[segIdx];
+    if (!seg || seg.base === null) return;
+
+    setFlowAction('CPU_TO_MMU');
+    await new Promise(r => setTimeout(r, 400));
+    setFlowAction('MMU_SEARCH');
+    await new Promise(r => setTimeout(r, 500));
+
+    const result = growSegment(procId, segIdx, deltaKB, processes, holeList, allocationAlgo);
+
+    // Mostrar animación en el bloque de RAM
+    const targetBase = result.strategy === 'RELOCATE' ? result.newBase : seg.base;
+    setGrowingBase(targetBase);
+    setGrowStrategy(result.strategy);
+
+    if (result.strategy === 'IN_PLACE') {
+      setFlowAction('MMU_TO_RAM');
+      addLog(`✅ ${proc.id} ${seg.segType}: IN-PLACE +${deltaKB} KB (${seg.size} → ${result.newSize} KB). Límite actualizado.`, 'success');
+    } else if (result.strategy === 'RELOCATE') {
+      setFlowAction('MMU_TO_RAM');
+      addLog(`⚠️ ${proc.id} ${seg.segType}: REUBICADO a base ${result.newBase} KB (+${deltaKB} KB). TLB invalidada.`, 'warning');
+      // Invalidar entrada TLB del segmento movido
+      setTlbEntries(prev => prev.filter(e => !(e.procId === procId && e.segNum === segIdx)));
+    } else {
+      setFlowAction('SEG_FAULT');
+      addLog(`❌ ${proc.id} ${seg.segType}: SIN ESPACIO para +${deltaKB} KB. ${result.error}`, 'error');
+    }
+
+    if (result.strategy !== 'FAIL') {
+      setProcesses(result.newProcesses);
+      setHoleList(result.newHoleList);
+    }
+
+    await new Promise(r => setTimeout(r, 900));
+    setGrowingBase(null);
+    setGrowStrategy(null);
+    setFlowAction(null);
+  }, [isTranslating, isCompacting, isSwapping, processes, holeList, allocationAlgo, addLog]);
 
   // ─────────────────────────────────────────────────────
   // COMPACTACIÓN
@@ -526,6 +577,7 @@ function App() {
             offset={offset}
             setOffset={setOffset}
             flowAction={flowAction}
+            growSegment={handleGrowSegment}
           />
 
           <Connector active={flowAction === 'CPU_TO_MMU'} color="var(--primary)" glow="var(--primary-glow)" />
@@ -555,6 +607,8 @@ function App() {
             isCompacting={isCompacting}
             onSwapOut={isSwappingEnabled ? handleSwapOut : null}
             isSwapping={isSwapping}
+            growingBase={growingBase}
+            growStrategy={growStrategy}
           />
 
           {isSwappingEnabled && (

@@ -7,9 +7,8 @@ import { motion } from 'framer-motion';
  * La RAM se visualiza como bloques de altura proporcional al tamaño del segmento.
  * Los huecos libres aparecen con un patrón de rayas.
  */
-const RAM = ({ ramBlocks, totalRam, activeBase, onCompact, isCompacting, onSwapOut, isSwapping }) => {
+const RAM = ({ ramBlocks, totalRam, activeBase, onCompact, isCompacting, onSwapOut, isSwapping, growingBase, growStrategy }) => {
   const blockRefs = useRef({});
-  // Rastrear qué procesos ya tienen el botón de Swap Out visible
   const seenPids = new Set();
 
   useEffect(() => {
@@ -72,16 +71,20 @@ const RAM = ({ ramBlocks, totalRam, activeBase, onCompact, isCompacting, onSwapO
 
           // Es un segmento ocupado
           const isActive = activeBase === block.base;
-          // Solo mostramos el botón de Swap Out en el primer segmento del proceso
+          const isGrowing   = growingBase !== null && growingBase === block.base && growStrategy === 'IN_PLACE';
+          const isRelocating = growingBase !== null && growingBase === block.base && growStrategy === 'RELOCATE';
+          const isFailing   = growingBase !== null && growingBase === block.base && growStrategy === 'FAIL';
           const isFirstOfProc = !seenPids.has(block.procId);
           if (isFirstOfProc) seenPids.add(block.procId);
+
+          const extraClass = isGrowing ? 'growing' : isRelocating ? 'relocating' : isFailing ? 'grow-fail' : '';
 
           return (
             <motion.div
               key={`seg-${block.procId}-${block.segType}-${block.base}`}
               ref={el => { blockRefs.current[block.base] = el; }}
               layout
-              className={`seg-block ${isActive ? 'highlight' : ''}`}
+              className={`seg-block ${isActive ? 'highlight' : ''} ${extraClass}`}
               style={{
                 height: `${heightPx}px`,
                 minHeight: '22px',
