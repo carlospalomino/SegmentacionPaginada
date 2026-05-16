@@ -56,7 +56,6 @@ const Header = ({
   segFaults, trapCount,
   resetSimulator, onOpenSettings, onOpenHelp,
   isTlbEnabled, setIsTlbEnabled,
-  showHoleList, setShowHoleList,
   stepByStepMode, setStepByStepMode,
   allocationAlgo, setAllocationAlgo,
 }) => {
@@ -97,8 +96,6 @@ const Header = ({
         <AlgoSelector current={allocationAlgo} onChange={setAllocationAlgo} />
         <Divider />
         <ToggleControl label="TLB" active={isTlbEnabled} onChange={setIsTlbEnabled} activeColor="var(--accent-cyan)" />
-        <Divider />
-        <ToggleControl label="HUECOS LIBRES" active={showHoleList} onChange={setShowHoleList} activeColor="var(--tertiary)" />
         <Divider />
         <ToggleControl label="PASO A PASO" active={stepByStepMode} onChange={setStepByStepMode} activeColor="var(--secondary)" />
       </div>

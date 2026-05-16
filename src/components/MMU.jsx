@@ -11,8 +11,6 @@ const MMU = ({
   flowAction,
   isTlbEnabled,
   tlbEntries,
-  holeList,
-  showHoleList,
 }) => {
   return (
     <section className={`node glass-card ${
@@ -32,45 +30,6 @@ const MMU = ({
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-
-          {/* Lista de Huecos Libres */}
-          {showHoleList && (
-            <div className="input-group" style={{ padding: '0.6rem', background: 'rgba(16,185,129,0.04)', borderColor: 'var(--tertiary)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <p style={{ fontSize: '0.6rem', fontWeight: 'bold', color: 'var(--tertiary)' }}>OS: LISTA DE HUECOS LIBRES</p>
-                <span style={{ fontSize: '0.6rem', background: 'rgba(16,185,129,0.15)', padding: '1px 6px', borderRadius: '4px', color: 'var(--tertiary)' }}>
-                  {holeList.length} hueco{holeList.length !== 1 ? 's' : ''}
-                </span>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', maxHeight: '90px', overflowY: 'auto' }}>
-                <AnimatePresence>
-                  {holeList.map((h, i) => (
-                    <motion.div
-                      key={`hole-${h.start}`}
-                      layout
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -8 }}
-                      transition={{ duration: 0.25 }}
-                      style={{
-                        display: 'flex', justifyContent: 'space-between',
-                        background: 'rgba(16,185,129,0.1)', borderRadius: '6px',
-                        padding: '3px 8px', fontSize: '0.65rem',
-                      }}
-                    >
-                      <span style={{ color: 'var(--text-muted)' }}>Inicio: <b style={{ color: 'var(--tertiary)' }}>{h.start} KB</b></span>
-                      <span style={{ color: 'var(--text-muted)' }}>Tamaño: <b style={{ color: 'var(--tertiary)' }}>{h.size} KB</b></span>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-                {holeList.length === 0 && (
-                  <span style={{ fontSize: '0.65rem', color: 'var(--accent-red)', fontStyle: 'italic', textAlign: 'center' }}>
-                    Sin huecos libres
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* TLB */}
           {isTlbEnabled && (

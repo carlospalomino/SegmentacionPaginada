@@ -44,7 +44,6 @@ function App() {
 
   // Lista de huecos libres: [{ start, size }]
   const [holeList, setHoleList] = useState([{ start: 0, size: DEFAULT_RAM_KB }]);
-  const [showHoleList, setShowHoleList] = useState(false);
 
   // TLB
   const [isTlbEnabled, setIsTlbEnabled] = useState(false);
@@ -464,7 +463,6 @@ function App() {
         onOpenSettings={() => setShowSettings(true)}
         onOpenHelp={() => setShowHelp(true)}
         isTlbEnabled={isTlbEnabled} setIsTlbEnabled={setIsTlbEnabled}
-        showHoleList={showHoleList} setShowHoleList={setShowHoleList}
         stepByStepMode={stepByStepMode} setStepByStepMode={setStepByStepMode}
         allocationAlgo={allocationAlgo} setAllocationAlgo={setAllocationAlgo}
       />
@@ -496,8 +494,6 @@ function App() {
             flowAction={flowAction}
             isTlbEnabled={isTlbEnabled}
             tlbEntries={tlbEntries}
-            holeList={holeList}
-            showHoleList={showHoleList}
           />
 
           <Connector
