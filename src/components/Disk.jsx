@@ -105,18 +105,38 @@ const Disk = ({ diskPages, diskSizeKB, flowAction, activeDiskEntry }) => {
                     )}
                   </div>
                   {/* Segmentos almacenados */}
-                  <div className="disk-entry-segs" style={{ marginTop: '0.4rem' }}>
+                  <div className="disk-entry-segs" style={{ 
+                    marginTop: '0.6rem', 
+                    display: 'flex', 
+                    flexWrap: 'wrap', 
+                    gap: '4px' 
+                  }}>
                     {proc.pages.map((dp, i) => {
                       const isThisActive = activeDiskEntry && activeDiskEntry.procId === dp.procId && activeDiskEntry.segIdx === dp.segIdx && activeDiskEntry.pageNum === dp.pageNum;
                       return (
-                        <span key={i} style={{ 
-                          marginRight: '0.3rem', fontSize: '0.6rem', 
-                          background: isThisActive ? proc.color : 'rgba(255,255,255,0.05)',
-                          color: isThisActive ? '#000' : 'var(--text-main)',
-                          padding: '1px 4px', borderRadius: '4px' 
+                        <div key={i} style={{ 
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          border: `1px solid ${isThisActive ? proc.color : 'rgba(255,255,255,0.1)'}`,
+                          background: isThisActive ? `${proc.color}33` : 'rgba(0,0,0,0.2)',
+                          color: isThisActive ? proc.color : 'var(--text-muted)',
+                          borderRadius: '4px',
+                          overflow: 'hidden',
+                          fontSize: '0.55rem',
+                          fontFamily: 'var(--font-mono)'
                         }}>
-                          {dp.segType} P{dp.pageNum}
-                        </span>
+                          <span style={{ 
+                            padding: '2px 4px', 
+                            background: isThisActive ? proc.color : 'rgba(255,255,255,0.08)', 
+                            color: isThisActive ? '#000' : 'inherit',
+                            borderRight: `1px solid ${isThisActive ? proc.color : 'rgba(255,255,255,0.1)'}` 
+                          }}>
+                            {dp.segType.substring(0, 3).toUpperCase()}
+                          </span>
+                          <span style={{ padding: '2px 4px' }}>
+                            P{dp.pageNum}
+                          </span>
+                        </div>
                       );
                     })}
                   </div>
