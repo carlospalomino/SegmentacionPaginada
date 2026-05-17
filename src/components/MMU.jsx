@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Binary, Play, ChevronDown, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const MMU = ({
   selectedProcess,
@@ -11,6 +12,8 @@ const MMU = ({
   isTlbEnabled,
   tlbEntries,
   pageSizeKB,
+  freeFrameList = [],
+  showFreeFrameList = false,
 }) => {
   const [expandedSeg, setExpandedSeg] = useState(null);
 
@@ -29,6 +32,52 @@ const MMU = ({
       </div>
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem', overflowY: 'auto', paddingRight: '4px' }}>
+
+        {/* OS: FREE FRAME LIST */}
+        {showFreeFrameList && (
+          <div className="input-group" style={{ padding: '0.5rem', background: 'rgba(255, 255, 255, 0.05)', borderColor: 'var(--border-color)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <p style={{ fontSize: '0.6rem', fontWeight: 'bold', color: 'var(--text-color)' }}>OS: LISTA DE MARCOS LIBRES</p>
+              <span style={{ background: 'var(--surface-color)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.6rem' }}>
+                {freeFrameList.length} libres
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', minHeight: '24px' }}>
+              <AnimatePresence>
+                {freeFrameList.map(frameNum => (
+                  <motion.div 
+                    key={`free-${frameNum}`}
+                    layout
+                    initial={{ opacity: 0, scale: 0.5 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.5 }}
+                    transition={{ duration: 0.3 }}
+                    style={{
+                      background: 'var(--tertiary)',
+                      color: '#000',
+                      fontSize: '0.65rem',
+                      fontWeight: '600',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      flexShrink: 0,
+                    }}
+                  >
+                    F{frameNum}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+              {freeFrameList.length === 0 && (
+                <motion.span 
+                  initial={{ opacity: 0 }} 
+                  animate={{ opacity: 1 }} 
+                  style={{ fontSize: '0.65rem', color: 'var(--accent-red)', fontStyle: 'italic' }}
+                >
+                  Lista Vacía
+                </motion.span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* TLB */}
         {isTlbEnabled && (

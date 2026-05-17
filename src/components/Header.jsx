@@ -56,6 +56,7 @@ const Header = ({
   pageFaults,
   resetSimulator, onOpenSettings, onOpenHelp,
   isTlbEnabled, setIsTlbEnabled,
+  showFreeFrameList, setShowFreeFrameList,
   stepByStepMode, setStepByStepMode,
   replacementAlgo, setReplacementAlgo,
 }) => {
@@ -100,6 +101,8 @@ const Header = ({
         <AlgoSelector current={replacementAlgo} onChange={setReplacementAlgo} />
         <Divider />
         <ToggleControl label="TLB" active={isTlbEnabled} onChange={setIsTlbEnabled} activeColor="var(--accent-cyan)" />
+        <Divider />
+        <ToggleControl label="MARCOS LIBRES" active={showFreeFrameList} onChange={setShowFreeFrameList} activeColor="var(--tertiary)" />
         <Divider />
         <ToggleControl label="PASO A PASO" active={stepByStepMode} onChange={setStepByStepMode} activeColor="var(--secondary)" />
       </div>

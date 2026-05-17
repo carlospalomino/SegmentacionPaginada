@@ -71,6 +71,7 @@ function App() {
 
   // Paso a paso
   const [stepByStepMode, setStepByStepMode] = useState(false);
+  const [showFreeFrameList, setShowFreeFrameList] = useState(false);
   const [stepQueue, setStepQueue] = useState([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(-1);
 
@@ -389,6 +390,7 @@ function App() {
         onOpenSettings={() => setShowSettings(true)}
         onOpenHelp={() => setShowHelp(true)}
         isTlbEnabled={isTlbEnabled} setIsTlbEnabled={setIsTlbEnabled}
+        showFreeFrameList={showFreeFrameList} setShowFreeFrameList={setShowFreeFrameList}
         stepByStepMode={stepByStepMode} setStepByStepMode={setStepByStepMode}
         pageFaults={pageFaults}
         replacementAlgo={replacementAlgo} setReplacementAlgo={setReplacementAlgo}
@@ -421,6 +423,8 @@ function App() {
             flowAction={flowAction}
             isTlbEnabled={isTlbEnabled}
             tlbEntries={tlbEntries}
+            freeFrameList={freeFrameList}
+            showFreeFrameList={showFreeFrameList}
             pageSizeKB={pageSizeKB}
           />
 

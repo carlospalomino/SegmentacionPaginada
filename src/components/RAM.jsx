@@ -34,21 +34,20 @@ const RAM = ({ occupiedFrames, activeFrame, evictingFrame, pageSize, TOTAL_FRAME
             return (
               <div
                 key={`hole-${i}`}
-                className="hole-block"
+                className="seg-block"
                 style={{ 
                   height: `${heightPx}px`, 
                   minHeight: '22px',
-                  justifyContent: 'flex-start',
-                  gap: '0.8rem'
+                  borderLeft: 'none',
+                  background: 'transparent',
+                  display: 'flex',
+                  alignItems: 'center'
                 }}
               >
-                <span style={{ opacity: 0.45, fontSize: '0.6rem', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
+                <span style={{ opacity: 0.5, fontSize: '0.6rem', fontFamily: 'var(--font-mono)', flexShrink: 0, flex: 1 }}>
                   F{i}
                 </span>
-                <span style={{ fontSize: '0.65rem', flex: 1, userSelect: 'none' }}>
-                  Marco Libre
-                </span>
-                <span style={{ fontSize: '0.55rem', opacity: 0.5, flexShrink: 0, fontFamily: 'var(--font-mono)' }}>
+                <span style={{ fontSize: '0.55rem', opacity: 0.3, flexShrink: 0, fontFamily: 'var(--font-mono)' }}>
                   [{i * pageSize} - {(i + 1) * pageSize} KB]
                 </span>
               </div>
