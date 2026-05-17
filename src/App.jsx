@@ -8,6 +8,7 @@ import { Connector, Footer } from './components/Common.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import Settings from './components/Settings.jsx';
 import HelpModal from './components/HelpModal.jsx';
+import Scenarios from './components/Scenarios.jsx';
 import { SEG_TYPES } from './constants/segTypes.js';
 
 import { buildPageTable } from './logic/memoryAllocation.js';
@@ -50,6 +51,7 @@ function App() {
   const [diskPages, setDiskPages] = useState([]);
   const [activeDiskEntry, setActiveDiskEntry] = useState(null);
   const [sharedCodeFrom, setSharedCodeFrom] = useState('');
+  const [activeScenarioId, setActiveScenarioId] = useState(null);
 
   // TLB
   const [isTlbEnabled, setIsTlbEnabled] = useState(false);
@@ -127,7 +129,59 @@ function App() {
     return map;
   }, [processes, TOTAL_FRAMES, pageSizeKB]);
 
+  // ── CARGAR ESCENARIO ──────────────────────────────────────────
+  const handleLoadScenario = useCallback((scenario) => {
+    setActiveScenarioId(scenario.id);
+    const data = scenario.setup();
+    
+    // Auto-generar diskPages basado en las tablas de páginas precargadas
+    const newDiskPages = [];
+    data.processes.forEach(p => {
+      p.segments.forEach((seg, si) => {
+        if (!seg.isShared) {
+          seg.pageTable.forEach(pg => {
+            newDiskPages.push({
+              procId: p.id,
+              segIdx: si,
+              segType: seg.segType,
+              pageNum: pg.pageNum,
+              color: seg.color
+            });
+          });
+        }
+      });
+    });
+
+    setProcesses(data.processes);
+    setDiskPages(newDiskPages);
+    setTlbEntries(data.tlbEntries || []);
+    setPageFaults(data.pageFaults || 0);
+    setNextPid(data.nextPid);
+    setSelectedProcessId(data.processes[0]?.id || null);
+    setFreeFrameList([]);
+    frameQueueRef.current = [];
+    frameLastAccessRef.current = {};
+    
+    // Populate FIFO/LRU queues with existing valid frames
+    data.processes.forEach(p => {
+      p.segments.forEach(seg => {
+        seg.pageTable.forEach(pg => {
+          if (pg.valid && pg.frame !== null) {
+            frameQueueRef.current.push({ frame: pg.frame, procId: p.id, segIdx: p.segments.indexOf(seg), pageNum: pg.pageNum });
+            frameLastAccessRef.current[pg.frame] = Date.now() + pg.frame; // Spread access times slightly
+          }
+        });
+      });
+    });
+
+    if (data.logs) {
+      setLogs(data.logs);
+    }
+    setFlowAction(null);
+  }, []);
+
   const addProcess = useCallback(async () => {
+    setActiveScenarioId(null);
     const newProcId = `P${nextPid}`;
     const color = PROC_COLORS[(nextPid - 1) % PROC_COLORS.length];
 
@@ -459,6 +513,8 @@ function App() {
       />
 
       <main className="flow-viewport">
+        <Scenarios onLoadScenario={handleLoadScenario} activeScenarioId={activeScenarioId} />
+
         <div className="nodes-container">
           <CPU
             processes={processes}
