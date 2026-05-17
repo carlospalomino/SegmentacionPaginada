@@ -1,118 +1,114 @@
-import React from 'react';
-import { HardDrive } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
+import { Layers } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const RAM = ({ occupiedFrames, activeFrame, evictingFrame, pageSize, TOTAL_FRAMES }) => {
-  const cols = Math.min(8, TOTAL_FRAMES);
+  const blockRefs = useRef({});
+
+  useEffect(() => {
+    if (activeFrame !== null && blockRefs.current[activeFrame]) {
+      blockRefs.current[activeFrame].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [activeFrame]);
+
+  // Calcular la altura proporcional (430px dividido entre marcos)
+  const PX_PER_FRAME = Math.max(430 / Math.max(TOTAL_FRAMES, 1), 22);
 
   return (
-    <section className={`node glass-card ${activeFrame !== null ? 'active' : ''}`}>
+    <section className="node glass-card" style={{ flex: 0.9, display: 'flex', flexDirection: 'column' }}>
       <div className="node-header">
-        <div className="node-icon" style={{ color: 'var(--secondary)' }}>
-          <HardDrive size={24} />
-        </div>
-        <div style={{ flex: 1 }}>
+        <div className="node-icon" style={{ color: 'var(--tertiary)' }}><Layers size={24} /></div>
+        <div>
           <h3 className="display-font">RAM</h3>
-          <p style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>
-            {TOTAL_FRAMES} marcos × {pageSize} KB
-          </p>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>LIBRES</div>
-          <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--secondary)' }}>
-            {occupiedFrames.filter(f => f === null).length}
-          </div>
+          <p style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Memoria Física · {TOTAL_FRAMES * pageSize} KB</p>
         </div>
       </div>
 
-      <div style={{
-        flex: 1, minHeight: 0, overflowY: 'auto',
-        display: 'grid',
-        gridTemplateColumns: `repeat(${cols}, 1fr)`,
-        gap: '4px',
-        alignContent: 'start',
-      }}>
-        {occupiedFrames.map((frame, idx) => {
-          const isEmpty = frame === null;
-          const isActive = activeFrame === idx;
-          const isEvicting = evictingFrame === idx;
+      {/* Address scale */}
+      <div className="ram-map" style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: '4px', height: '430px' }}>
+        {Array.from({ length: TOTAL_FRAMES }).map((_, i) => {
+          const frame = occupiedFrames[i];
+          const heightPx = PX_PER_FRAME;
 
-          let bg = 'rgba(255,255,255,0.03)';
-          let border = '1px solid var(--border-color)';
-          let glow = 'none';
-
-          if (isEvicting) {
-            bg = 'rgba(239,68,68,0.15)';
-            border = '2px solid #ef4444';
-            glow = '0 0 8px rgba(239,68,68,0.5)';
-          } else if (isActive) {
-            bg = 'rgba(0,242,255,0.15)';
-            border = '2px solid var(--primary)';
-            glow = '0 0 10px var(--primary-glow)';
-          } else if (!isEmpty) {
-            bg = `${frame.color}22`;
-            border = `1px solid ${frame.color}55`;
+          if (!frame) {
+            return (
+              <div
+                key={`hole-${i}`}
+                className="hole-block"
+                style={{ 
+                  height: `${heightPx}px`, 
+                  minHeight: '22px',
+                  justifyContent: 'flex-start',
+                  gap: '0.8rem'
+                }}
+              >
+                <span style={{ opacity: 0.45, fontSize: '0.6rem', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
+                  F{i}
+                </span>
+                <span style={{ fontSize: '0.65rem', flex: 1, userSelect: 'none' }}>
+                  Marco Libre
+                </span>
+                <span style={{ fontSize: '0.55rem', opacity: 0.5, flexShrink: 0, fontFamily: 'var(--font-mono)' }}>
+                  [{i * pageSize} - {(i + 1) * pageSize} KB]
+                </span>
+              </div>
+            );
           }
 
+          const isActive = activeFrame === i;
+          const isEvicting = evictingFrame === i;
+          const extraClass = isEvicting ? 'relocating' : '';
+
           return (
-            <div
-              key={idx}
-              title={isEmpty
-                ? `Marco F${idx} — libre`
-                : `F${idx}: ${frame.procId} ${frame.segType} Pág${frame.pageNum}${frame.internalFrag > 0 ? ` (${frame.internalFrag}KB frag)` : ''}`
-              }
+            <motion.div
+              key={`frame-${i}`}
+              ref={el => { blockRefs.current[i] = el; }}
+              layout
+              className={`seg-block ${isActive ? 'highlight' : ''} ${extraClass}`}
               style={{
-                background: bg,
-                border,
-                boxShadow: glow,
-                borderRadius: '6px',
-                padding: '4px 2px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '2px',
+                height: `${heightPx}px`,
+                minHeight: '22px',
+                borderLeft: `4px solid ${frame.color}`,
+                background: isActive ? `${frame.color}35` : isEvicting ? 'rgba(239,68,68,0.15)' : `${frame.color}18`,
+                boxShadow: isActive ? `0 0 16px ${frame.color}55` : isEvicting ? 'inset 0 0 10px rgba(239,68,68,0.5)' : 'none',
                 transition: 'all 0.3s ease',
-                cursor: 'default',
-                minHeight: '52px',
               }}
+              initial={{ opacity: 0.6, scaleX: 0.95 }}
+              animate={{ opacity: 1, scaleX: 1 }}
             >
-              <span style={{ fontSize: '0.5rem', color: 'var(--text-muted)', opacity: 0.6 }}>F{idx}</span>
-              {!isEmpty ? (
-                <>
-                  <div style={{
-                    width: '100%', height: '4px',
-                    background: frame.color,
-                    borderRadius: '2px',
-                    opacity: 0.8,
-                  }} />
-                  <span style={{ fontSize: '0.5rem', fontWeight: 'bold', color: frame.color, lineHeight: 1.1, textAlign: 'center' }}>
-                    {frame.procId}
-                  </span>
-                  <span style={{ fontSize: '0.45rem', color: 'var(--text-muted)', lineHeight: 1, textAlign: 'center' }}>
-                    {frame.segType}
-                  </span>
-                  <span style={{ fontSize: '0.45rem', color: 'var(--text-muted)', lineHeight: 1 }}>
-                    P{frame.pageNum}
-                  </span>
-                  {frame.internalFrag > 0 && (
-                    <div style={{
-                      width: '100%', height: `${(frame.internalFrag / pageSize) * 100}%`,
-                      minHeight: '3px',
-                      background: 'rgba(245,158,11,0.4)',
-                      borderRadius: '2px',
-                      marginTop: '1px',
-                    }}
-                      title={`Frag. interna: ${frame.internalFrag} KB`}
-                    />
-                  )}
-                </>
-              ) : (
-                <span style={{ fontSize: '0.45rem', color: 'var(--text-muted)', opacity: 0.3, marginTop: '4px' }}>
-                  libre
-                </span>
-              )}
-            </div>
+              {/* Dirección base */}
+              <span style={{ opacity: 0.45, marginRight: '0.4rem', fontSize: '0.6rem', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
+                F{i}
+              </span>
+
+              {/* Tipo badge */}
+              <span style={{
+                background: `${frame.color}33`, color: frame.color,
+                borderRadius: '4px', padding: '0px 5px',
+                fontSize: '0.6rem', fontWeight: 700, flexShrink: 0, marginRight: '0.3rem',
+              }}>
+                {frame.segType}
+              </span>
+
+              {/* PID */}
+              <span style={{ fontSize: '0.65rem', flex: 1, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {frame.procId} (Pág {frame.pageNum})
+              </span>
+
+              {/* Rango de Direcciones */}
+              <span style={{ fontSize: '0.55rem', opacity: 0.5, flexShrink: 0, fontFamily: 'var(--font-mono)' }}>
+                [{i * pageSize} - {(i + 1) * pageSize} KB]
+              </span>
+
+            </motion.div>
           );
         })}
+
+        {TOTAL_FRAMES === 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.3 }}>
+            <p style={{ fontSize: '0.8rem' }}>RAM vacía</p>
+          </div>
+        )}
       </div>
     </section>
   );
