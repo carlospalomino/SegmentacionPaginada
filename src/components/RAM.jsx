@@ -65,6 +65,8 @@ const RAM = ({ occupiedFrames, activeFrame, evictingFrame, pageSize, TOTAL_FRAME
               layout
               className={`seg-block ${isActive ? 'highlight' : ''} ${extraClass}`}
               style={{
+                position: 'relative',
+                overflow: 'hidden',
                 height: `${heightPx}px`,
                 minHeight: '22px',
                 borderLeft: `4px solid ${frame.color}`,
@@ -76,7 +78,7 @@ const RAM = ({ occupiedFrames, activeFrame, evictingFrame, pageSize, TOTAL_FRAME
               animate={{ opacity: 1, scaleX: 1 }}
             >
               {/* Dirección base */}
-              <span style={{ opacity: 0.45, marginRight: '0.4rem', fontSize: '0.6rem', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
+              <span style={{ opacity: 0.45, marginRight: '0.4rem', fontSize: '0.6rem', fontFamily: 'var(--font-mono)', flexShrink: 0, zIndex: 2, position: 'relative' }}>
                 F{i}
               </span>
 
@@ -85,19 +87,38 @@ const RAM = ({ occupiedFrames, activeFrame, evictingFrame, pageSize, TOTAL_FRAME
                 background: `${frame.color}33`, color: frame.color,
                 borderRadius: '4px', padding: '0px 5px',
                 fontSize: '0.6rem', fontWeight: 700, flexShrink: 0, marginRight: '0.3rem',
+                zIndex: 2, position: 'relative'
               }}>
                 {frame.segType}
               </span>
 
               {/* PID */}
-              <span style={{ fontSize: '0.65rem', flex: 1, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <span style={{ fontSize: '0.65rem', flex: 1, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', zIndex: 2, position: 'relative' }}>
                 {frame.procId} (Pág {frame.pageNum})
               </span>
 
               {/* Rango de Direcciones */}
-              <span style={{ fontSize: '0.55rem', opacity: 0.5, flexShrink: 0, fontFamily: 'var(--font-mono)' }}>
+              <span style={{ fontSize: '0.55rem', opacity: 0.5, flexShrink: 0, fontFamily: 'var(--font-mono)', zIndex: 2, position: 'relative' }}>
                 [{i * pageSize} - {(i + 1) * pageSize} KB]
               </span>
+
+              {/* Internal fragmentation badge */}
+              {frame.internalFrag > 0 && (
+                <div className="frag-badge">
+                  <span>F.I.</span>
+                  <span>{frame.internalFrag}K</span>
+                </div>
+              )}
+
+              {/* Internal fragmentation red gradient overlay */}
+              {frame.internalFrag > 0 && (
+                <motion.div
+                  className="frag-overlay"
+                  initial={{ width: '0%' }}
+                  animate={{ width: `${Math.round((frame.internalFrag / pageSize) * 100)}%` }}
+                  transition={{ duration: 0.5 }}
+                />
+              )}
 
             </motion.div>
           );
