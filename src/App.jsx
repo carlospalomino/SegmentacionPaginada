@@ -179,6 +179,44 @@ function App() {
     addLog(`Proceso ${id} terminado. Marcos liberados.`, 'warning');
   }, [processes, selectedProcessId, addLog]);
 
+  const handleGrowSegment = useCallback((procId, segIdx, deltaKB) => {
+    let newDiskEntries = [];
+    setProcesses(prev => prev.map(p => {
+      if (p.id !== procId) return p;
+      const newSegs = [...p.segments];
+      const seg = { ...newSegs[segIdx] };
+      
+      const newLimit = seg.limit + deltaKB;
+      const oldNumPages = seg.pageTable.length;
+      const newNumPages = Math.ceil(newLimit / pageSizeKB);
+      
+      const newPageTable = [...seg.pageTable];
+      if (newNumPages > oldNumPages) {
+        for (let pNum = oldNumPages; pNum < newNumPages; pNum++) {
+          newPageTable.push({ pageNum: pNum, frame: null, valid: false });
+          newDiskEntries.push({
+            procId: p.id,
+            segIdx: segIdx,
+            segType: seg.segType,
+            pageNum: pNum,
+            color: seg.color
+          });
+        }
+      }
+      
+      seg.limit = newLimit;
+      seg.size = newLimit;
+      seg.pageTable = newPageTable;
+      newSegs[segIdx] = seg;
+      
+      return { ...p, segments: newSegs };
+    }));
+    
+    if (newDiskEntries.length > 0) {
+      setDiskPages(prev => [...prev, ...newDiskEntries]);
+    }
+  }, [pageSizeKB]);
+
   // ── PAGE FAULT HANDLER (auto mode) ───────────────────────────
   const handlePageFault = useCallback(async (pid, segIdx, pageNum, frameOffset) => {
     setPageFaults(prev => prev + 1);
@@ -410,6 +448,7 @@ function App() {
             activeSegNum={activeSegNum}
             flowAction={flowAction}
             pageSizeKB={pageSizeKB}
+            growSegment={handleGrowSegment}
           />
 
           <Connector active={flowAction === 'CPU_TO_MMU'} />

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Cpu, Plus, Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Cpu, Plus, Trash2, TrendingUp } from 'lucide-react';
 import { SEG_TYPES } from '../constants/segTypes.js';
 
 // Dirección lógica: (segNum, pageNum, frameOffset)
@@ -43,7 +43,10 @@ const CPU = ({
   activeSegNum, offset, setOffset,
   flowAction,
   pageSizeKB,
+  growSegment
 }) => {
+  const [growDelta, setGrowDelta] = useState(4);
+  const [growSegIdx, setGrowSegIdx] = useState(0);
   const selectedProcess = processes.find(p => p.id === selectedProcessId);
 
   return (
@@ -80,7 +83,7 @@ const CPU = ({
         </div>
 
         {/* Lista de procesos */}
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        <div style={{ flex: 1, minHeight: '120px', overflowY: 'auto' }}>
           <p style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginBottom: '0.4rem', fontWeight: 600 }}>PROCESOS ACTIVOS</p>
           {processes.length === 0 && (
             <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', opacity: 0.5, textAlign: 'center', marginTop: '1rem' }}>
@@ -140,6 +143,69 @@ const CPU = ({
           pageSizeKB={pageSizeKB}
           proc={selectedProcess}
         />
+
+        {/* Panel de CRECIMIENTO DE SEGMENTO */}
+        {selectedProcess && growSegment && (
+          <div className="input-group" style={{ padding: '0.6rem', borderColor: '#10b981', background: 'rgba(16,185,129,0.04)', marginTop: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
+              <TrendingUp size={12} color="#10b981" />
+              <p style={{ fontSize: '0.6rem', fontWeight: 'bold', color: '#10b981' }}>CRECER SEGMENTO</p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginBottom: '0.4rem' }}>
+              {selectedProcess.segments.map((seg, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setGrowSegIdx(idx)}
+                  style={{
+                    padding: '2px 7px', borderRadius: '6px', border: '1px solid',
+                    borderColor: growSegIdx === idx ? seg.color : 'var(--card-border)',
+                    background: growSegIdx === idx ? `${seg.color}22` : 'transparent',
+                    color: growSegIdx === idx ? seg.color : 'var(--text-muted)',
+                    fontSize: '0.6rem', fontWeight: growSegIdx === idx ? 700 : 400,
+                    cursor: 'pointer', transition: 'all 0.2s',
+                  }}
+                >
+                  {seg.segType}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.4rem' }}>
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', flexShrink: 0 }}>+ KB:</span>
+              <input
+                type="number" min="1" max="64" value={growDelta}
+                onChange={e => setGrowDelta(Math.max(1, Number(e.target.value)))}
+                style={{ width: '52px', textAlign: 'center', padding: '0.2rem 0.3rem', fontSize: '0.75rem' }}
+              />
+              <button
+                onClick={() => growSegment(selectedProcessId, growSegIdx, growDelta)}
+                disabled={!!flowAction}
+                style={{
+                  flex: 1, padding: '0.3rem 0.5rem', borderRadius: '8px', border: 'none',
+                  background: flowAction ? 'rgba(16,185,129,0.2)' : '#10b981',
+                  color: flowAction ? '#10b981' : '#000',
+                  fontSize: '0.65rem', fontWeight: 700, cursor: flowAction ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem',
+                  transition: 'all 0.2s',
+                }}
+              >
+                <TrendingUp size={11} /> Crecer
+              </button>
+            </div>
+
+            {selectedProcess.segments[growSegIdx] && (
+              <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', opacity: 0.8 }}>
+                Actual: <strong style={{ color: selectedProcess.segments[growSegIdx].color }}>
+                  {selectedProcess.segments[growSegIdx].limit} KB
+                </strong>
+                {' '}→ Nuevo: <strong style={{ color: '#10b981' }}>
+                  {selectedProcess.segments[growSegIdx].limit + growDelta} KB
+                </strong>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </section>
   );
