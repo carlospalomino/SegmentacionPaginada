@@ -49,6 +49,7 @@ function App() {
   // Disco: páginas individuales { procId, segIdx, segType, pageNum, color }
   const [diskPages, setDiskPages] = useState([]);
   const [activeDiskEntry, setActiveDiskEntry] = useState(null);
+  const [sharedCodeFrom, setSharedCodeFrom] = useState('');
 
   // TLB
   const [isTlbEnabled, setIsTlbEnabled] = useState(false);
@@ -126,7 +127,6 @@ function App() {
     return map;
   }, [processes, TOTAL_FRAMES, pageSizeKB]);
 
-  // ── CREAR PROCESO ─────────────────────────────────────────────
   const addProcess = useCallback(async () => {
     const newProcId = `P${nextPid}`;
     const color = PROC_COLORS[(nextPid - 1) % PROC_COLORS.length];
@@ -135,29 +135,53 @@ function App() {
     await new Promise(r => setTimeout(r, 400));
     setFlowAction(null);
 
+    let targetParentProc = null;
+    if (sharedCodeFrom) {
+      targetParentProc = processes.find(p => p.id === sharedCodeFrom);
+    }
+
     const segments = SEG_TYPES.map(({ key, type, color: segColor }) => {
-      const size = newProcConfig[key];
-      const pageTable = buildPageTable(size, pageSizeKB);
-      return { segType: type, color: segColor, size, limit: size, pageTable };
+      let size = newProcConfig[key];
+      let pageTable;
+      let isShared = false;
+
+      if (targetParentProc && type === 'Código') {
+        const parentCodeSeg = targetParentProc.segments.find(s => s.segType === 'Código');
+        if (parentCodeSeg) {
+          size = parentCodeSeg.size;
+          // Copiar la tabla de páginas para que apunten a los mismos marcos físicos
+          pageTable = parentCodeSeg.pageTable.map(pt => ({ ...pt }));
+          isShared = true;
+        }
+      }
+
+      if (!isShared) {
+        pageTable = buildPageTable(size, pageSizeKB);
+      }
+
+      return { segType: type, color: segColor, size, limit: size, pageTable, isShared };
     });
 
     const totalPages = segments.reduce((acc, s) => acc + s.pageTable.length, 0);
 
-    // Todas las páginas inician en DISCO
+    // Todas las páginas inician en DISCO, EXCEPTO las compartidas (el padre ya las tiene en disco)
     const newDiskPages = [];
     segments.forEach((s, si) => {
-      s.pageTable.forEach(pg => {
-        newDiskPages.push({ procId: newProcId, segIdx: si, segType: s.segType, pageNum: pg.pageNum, color });
-      });
+      if (!s.isShared) {
+        s.pageTable.forEach(pg => {
+          newDiskPages.push({ procId: newProcId, segIdx: si, segType: s.segType, pageNum: pg.pageNum, color });
+        });
+      }
     });
 
     setProcesses(prev => [...prev, { id: newProcId, color, segments }]);
     setDiskPages(prev => [...prev, ...newDiskPages]);
     setSelectedProcessId(newProcId);
     setNextPid(p => p + 1);
+    setSharedCodeFrom('');
     incrementSimCounter();
-    addLog(`Proceso ${newProcId} creado: ${totalPages} páginas en DISCO (paginación por demanda).`, 'success');
-  }, [nextPid, newProcConfig, pageSizeKB, incrementSimCounter, addLog]);
+    addLog(`Proceso ${newProcId} creado: ${totalPages} páginas (Compartiendo código: ${sharedCodeFrom ? 'Sí' : 'No'}).`, 'success');
+  }, [nextPid, newProcConfig, pageSizeKB, incrementSimCounter, addLog, sharedCodeFrom, processes]);
 
   // ── ELIMINAR PROCESO ──────────────────────────────────────────
   const removeProcess = useCallback((id) => {
@@ -449,6 +473,8 @@ function App() {
             flowAction={flowAction}
             pageSizeKB={pageSizeKB}
             growSegment={handleGrowSegment}
+            sharedCodeFrom={sharedCodeFrom}
+            setSharedCodeFrom={setSharedCodeFrom}
           />
 
           <Connector active={flowAction === 'CPU_TO_MMU'} />

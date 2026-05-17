@@ -43,7 +43,9 @@ const CPU = ({
   activeSegNum, offset, setOffset,
   flowAction,
   pageSizeKB,
-  growSegment
+  growSegment,
+  sharedCodeFrom,
+  setSharedCodeFrom
 }) => {
   const [growDelta, setGrowDelta] = useState(4);
   const [growSegIdx, setGrowSegIdx] = useState(0);
@@ -64,15 +66,41 @@ const CPU = ({
         {/* Config nuevo proceso */}
         <div className="input-group">
           <p style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginBottom: '0.6rem', fontWeight: 600 }}>NUEVO PROCESO (tamaño segmentos en KB)</p>
+          
+          <div style={{ marginBottom: '0.8rem', padding: '0.4rem', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.05)' }}>
+             <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-main)', fontSize: '0.7rem', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  checked={sharedCodeFrom !== ''} 
+                  onChange={e => setSharedCodeFrom(e.target.checked ? (processes[0]?.id || '') : '')} 
+                  disabled={processes.length === 0} 
+                  style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
+                />
+                Compartir Código existente
+             </label>
+             {sharedCodeFrom !== '' && processes.length > 0 && (
+               <select 
+                 value={sharedCodeFrom} 
+                 onChange={e => setSharedCodeFrom(e.target.value)} 
+                 style={{ marginTop: '0.4rem', width: '100%', padding: '0.25rem', background: 'rgba(0,0,0,0.2)', color: 'var(--text-main)', border: '1px solid var(--border-color)', borderRadius: '4px', fontSize: '0.7rem', outline: 'none' }}
+               >
+                 {processes.map(p => <option key={p.id} value={p.id}>Reutilizar código de {p.id}</option>)}
+               </select>
+             )}
+          </div>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', marginBottom: '0.6rem' }}>
             {SEG_TYPES.map(({ key, type, color }) => (
               <div key={key}>
-                <label style={{ fontSize: '0.6rem', color, display: 'block', marginBottom: '2px' }}>{type}</label>
+                <label style={{ fontSize: '0.6rem', color: (sharedCodeFrom !== '' && type === 'Código') ? 'var(--text-muted)' : color, display: 'block', marginBottom: '2px' }}>
+                  {type} {sharedCodeFrom !== '' && type === 'Código' && '(Compartido)'}
+                </label>
                 <input
                   type="number" min={pageSizeKB} max={64} step={pageSizeKB}
                   value={newProcConfig[key]}
                   onChange={e => setNewProcConfig(prev => ({ ...prev, [key]: Math.max(pageSizeKB, Number(e.target.value)) }))}
-                  style={{ width: '100%' }}
+                  style={{ width: '100%', opacity: (sharedCodeFrom !== '' && type === 'Código') ? 0.3 : 1 }}
+                  disabled={sharedCodeFrom !== '' && type === 'Código'}
                 />
               </div>
             ))}
