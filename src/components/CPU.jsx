@@ -97,8 +97,13 @@ const CPU = ({
               <div
                 key={p.id}
                 onClick={() => setSelectedProcessId(p.id)}
-                className={`proc-row ${selectedProcessId === p.id ? 'selected' : ''}`}
-                style={{ borderColor: selectedProcessId === p.id ? p.color : 'transparent', cursor: 'pointer' }}
+                style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '0.5rem 0.6rem', marginBottom: '0.35rem', borderRadius: '10px',
+                  background: selectedProcessId === p.id ? `${p.color}15` : 'transparent',
+                  border: `1px solid ${selectedProcessId === p.id ? p.color : 'transparent'}`,
+                  cursor: 'pointer', transition: 'all 0.2s',
+                }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
                   <div style={{ width: 10, height: 10, borderRadius: '50%', background: p.color, flexShrink: 0 }} />
