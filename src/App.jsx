@@ -112,16 +112,23 @@ function App() {
       proc.segments.forEach((seg, si) => {
         seg.pageTable.forEach(pg => {
           if (pg.valid && pg.frame !== null) {
-            map[pg.frame] = {
-              procId: proc.id,
-              segIdx: si,
-              segType: seg.segType,
-              pageNum: pg.pageNum,
-              color: proc.color,
-              internalFrag: pg.pageNum === seg.pageTable.length - 1
-                ? (seg.pageTable.length * pageSizeKB) - seg.size
-                : 0,
-            };
+            const existing = map[pg.frame];
+            if (existing) {
+              if (!existing.procIds.includes(proc.id)) {
+                existing.procIds.push(proc.id);
+              }
+            } else {
+              map[pg.frame] = {
+                procIds: [proc.id],
+                segIdx: si,
+                segType: seg.segType,
+                pageNum: pg.pageNum,
+                color: seg.isShared ? '#a855f7' : proc.color, // Usar púrpura para marcos compartidos o color del proceso original
+                internalFrag: pg.pageNum === seg.pageTable.length - 1
+                  ? (seg.pageTable.length * pageSizeKB) - seg.size
+                  : 0,
+              };
+            }
           }
         });
       });

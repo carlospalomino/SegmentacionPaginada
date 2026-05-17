@@ -94,7 +94,12 @@ const RAM = ({ occupiedFrames, activeFrame, evictingFrame, pageSize, TOTAL_FRAME
 
               {/* PID */}
               <span style={{ fontSize: '0.65rem', flex: 1, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', zIndex: 2, position: 'relative' }}>
-                {frame.procId} (Pág {frame.pageNum})
+                {frame.procIds.join(', ')} (Pág {frame.pageNum})
+                {frame.procIds.length > 1 && (
+                  <span style={{ fontSize: '0.55rem', opacity: 0.7, color: '#a855f7', marginLeft: '0.3rem', fontWeight: 'bold' }}>
+                    [Compartido]
+                  </span>
+                )}
               </span>
 
               {/* Rango de Direcciones */}
