@@ -1,50 +1,84 @@
 /**
  * addressTranslation.js
- * Lógica de la MMU para Segmentación Simple.
+ * Traducción de dirección lógica para Segmentación Paginada.
  *
- * La dirección lógica es: <segNum, offset>
- * La dirección física es: Base[segNum] + offset
- * Condición de protección: offset < Límite[segNum]
+ * Dirección lógica: (segNum, offset)
+ * Proceso interno:
+ *   pageNum      = floor(offset / PAGE_SIZE_KB)
+ *   frameOffset  = offset % PAGE_SIZE_KB
+ *   entry        = segment.pageTable[pageNum]
+ *   if !entry.valid → PAGE FAULT
+ *   physicalAddr = entry.frame × PAGE_SIZE_KB + frameOffset  [en KB]
  */
 
 /**
  * translate
- * @param {object} segment - { id, base, limit, size }
- * @param {number} offset  - Desplazamiento dentro del segmento
- * @returns {{ ok: boolean, physicalAddress: number|null, error: string|null }}
+ * @param {object} segment      - { segType, size, limit, pageTable: [{pageNum, frame, valid}] }
+ * @param {number} offset       - Desplazamiento lógico dentro del segmento (en KB)
+ * @param {number} pageSizeKB   - Tamaño de página en KB
+ * @returns {{ ok, pageFault, physicalAddr, pageNum, frameOffset, frame, error }}
  */
-export function translate(segment, offset) {
+export function translate(segment, offset, pageSizeKB) {
   if (!segment) {
-    return { ok: false, physicalAddress: null, error: 'Segmento no existe en la tabla.' };
+    return { ok: false, pageFault: false, physicalAddr: null, error: 'Segmento no existe.' };
   }
 
+  // Protección de límite (segmentation fault)
   if (offset >= segment.limit) {
     return {
       ok: false,
-      physicalAddress: null,
-      error: `¡SEGMENTATION FAULT! Offset ${offset} ≥ Límite ${segment.limit}. Acceso fuera de rango.`,
+      pageFault: false,
+      physicalAddr: null,
+      error: `¡SEGMENTATION FAULT! Offset ${offset} ≥ Límite ${segment.limit} KB.`,
     };
   }
 
-  const physicalAddress = segment.base + offset;
-  return { ok: true, physicalAddress, error: null };
+  const pageNum     = Math.floor(offset / pageSizeKB);
+  const frameOffset = offset % pageSizeKB;
+  const entry       = segment.pageTable?.[pageNum];
+
+  if (!entry || !entry.valid) {
+    // PAGE FAULT — la página no está en RAM
+    return {
+      ok: false,
+      pageFault: true,
+      physicalAddr: null,
+      pageNum,
+      frameOffset,
+      frame: null,
+      error: null,
+    };
+  }
+
+  const physicalAddr = entry.frame * pageSizeKB + frameOffset;
+  return {
+    ok: true,
+    pageFault: false,
+    physicalAddr,
+    pageNum,
+    frameOffset,
+    frame: entry.frame,
+    error: null,
+  };
 }
 
 /**
- * checkTlb — busca una entrada en la TLB
- * @param {Array}  tlbEntries  - [{ procId, segNum, base, limit }]
- * @param {string} procId
- * @param {number} segNum
+ * checkTlb — busca en la TLB por (procId, segNum, pageNum)
+ * @param {Array}  tlbEntries  - [{ procId, segNum, pageNum, frame }]
  * @returns {object|null}
  */
-export function checkTlb(tlbEntries, procId, segNum) {
-  return tlbEntries.find(e => e.procId === procId && e.segNum === segNum) || null;
+export function checkTlb(tlbEntries, procId, segNum, pageNum) {
+  return tlbEntries.find(
+    e => e.procId === procId && e.segNum === segNum && e.pageNum === pageNum
+  ) || null;
 }
 
 /**
- * updateTlb — inserta o actualiza una entrada en la TLB (máx 4 entradas)
+ * updateTlb — inserta o actualiza una entrada (máx 4 entradas, LRU implícito)
  */
-export function updateTlb(tlbEntries, procId, segNum, base, limit) {
-  const filtered = tlbEntries.filter(e => !(e.procId === procId && e.segNum === segNum));
-  return [{ procId, segNum, base, limit }, ...filtered].slice(0, 4);
+export function updateTlb(tlbEntries, procId, segNum, pageNum, frame) {
+  const filtered = tlbEntries.filter(
+    e => !(e.procId === procId && e.segNum === segNum && e.pageNum === pageNum)
+  );
+  return [{ procId, segNum, pageNum, frame }, ...filtered].slice(0, 4);
 }

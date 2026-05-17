@@ -1,104 +1,53 @@
 /**
  * memoryAllocation.js
- * Algoritmos de asignación de huecos libres para Segmentación Simple.
- * Cada hueco: { start: number, size: number }
- * Retorna: { base: number, newHoles: Array } o null si no hay espacio.
- */
-
-/**
- * First Fit — asigna el primer hueco suficientemente grande
- */
-export function firstFit(holes, segSize) {
-  for (let i = 0; i < holes.length; i++) {
-    if (holes[i].size >= segSize) {
-      return _allocate(holes, i, segSize);
-    }
-  }
-  return null;
-}
-
-/**
- * Best Fit — asigna el hueco más pequeño que alcance
- */
-export function bestFit(holes, segSize) {
-  let bestIdx = -1;
-  let bestSize = Infinity;
-  for (let i = 0; i < holes.length; i++) {
-    if (holes[i].size >= segSize && holes[i].size < bestSize) {
-      bestIdx = i;
-      bestSize = holes[i].size;
-    }
-  }
-  if (bestIdx === -1) return null;
-  return _allocate(holes, bestIdx, segSize);
-}
-
-/**
- * Worst Fit — asigna el hueco más grande disponible
- */
-export function worstFit(holes, segSize) {
-  let worstIdx = -1;
-  let worstSize = -1;
-  for (let i = 0; i < holes.length; i++) {
-    if (holes[i].size >= segSize && holes[i].size > worstSize) {
-      worstIdx = i;
-      worstSize = holes[i].size;
-    }
-  }
-  if (worstIdx === -1) return null;
-  return _allocate(holes, worstIdx, segSize);
-}
-
-/**
- * Helper interno: realiza la asignación y devuelve la nueva lista de huecos
- */
-function _allocate(holes, idx, segSize) {
-  const hole = holes[idx];
-  const base = hole.start;
-  const newHoles = [...holes];
-
-  if (hole.size === segSize) {
-    // El hueco desaparece exactamente
-    newHoles.splice(idx, 1);
-  } else {
-    // El hueco se encoge
-    newHoles[idx] = { start: hole.start + segSize, size: hole.size - segSize };
-  }
-
-  return { base, newHoles };
-}
-
-/**
- * allocate — dispatcher que elige el algoritmo según la cadena dada
- */
-export function allocate(holes, segSize, algorithm) {
-  switch (algorithm) {
-    case 'BEST':  return bestFit(holes, segSize);
-    case 'WORST': return worstFit(holes, segSize);
-    default:      return firstFit(holes, segSize); // FIRST (default)
-  }
-}
-
-/**
- * compactMemory — mueve todos los segmentos al inicio y agrupa todos los
- * huecos en un único hueco al final.
+ * Asignación de marcos para Segmentación Paginada.
  *
- * @param {Array} segments  - Array de segmentos { id, procId, segType, base, size, color, limit }
- * @param {number} totalRam - Tamaño total de la RAM en KB
- * @returns {{ newSegments: Array, newHoles: Array }}
+ * Ya NO hay huecos variables (la fragmentación externa desaparece).
+ * La RAM se divide en marcos de tamaño fijo. Se mantiene una Free Frame List.
  */
-export function compactMemory(segments, totalRam) {
-  // Ordenar por dirección base actual
-  const sorted = [...segments].sort((a, b) => a.base - b.base);
-  let cursor = 0;
-  const newSegments = sorted.map(seg => {
-    const moved = { ...seg, base: cursor };
-    cursor += seg.size;
-    return moved;
-  });
 
-  const freeSize = totalRam - cursor;
-  const newHoles = freeSize > 0 ? [{ start: cursor, size: freeSize }] : [];
+/**
+ * allocateFrames
+ * Toma `count` marcos de la freeFrameList.
+ *
+ * @param {number[]} freeFrameList  - Lista de índices de marcos libres
+ * @param {number}   count          - Cantidad de marcos necesarios
+ * @returns {{ frames: number[], newFreeList: number[] } | null}
+ */
+export function allocateFrames(freeFrameList, count) {
+  if (freeFrameList.length < count) return null; // No hay suficientes marcos
 
-  return { newSegments, newHoles };
+  const frames      = freeFrameList.slice(0, count);
+  const newFreeList = freeFrameList.slice(count);
+  return { frames, newFreeList };
+}
+
+/**
+ * releaseFrames
+ * Devuelve marcos a la freeFrameList (al terminar/swapear un proceso).
+ *
+ * @param {number[]} freeFrameList
+ * @param {number[]} framesToRelease
+ * @returns {number[]} nueva freeFrameList ordenada
+ */
+export function releaseFrames(freeFrameList, framesToRelease) {
+  return [...freeFrameList, ...framesToRelease].sort((a, b) => a - b);
+}
+
+/**
+ * buildPageTable
+ * Construye la tabla de páginas inicial para un segmento.
+ * Todas las páginas inician con valid=false (están en disco).
+ *
+ * @param {number} segSizeKB   - Tamaño del segmento en KB
+ * @param {number} pageSizeKB  - Tamaño de página en KB
+ * @returns {Array} pageTable  - [{ pageNum, frame: null, valid: false }]
+ */
+export function buildPageTable(segSizeKB, pageSizeKB) {
+  const pageCount = Math.ceil(segSizeKB / pageSizeKB);
+  return Array.from({ length: pageCount }, (_, i) => ({
+    pageNum: i,
+    frame: null,
+    valid: false,
+  }));
 }

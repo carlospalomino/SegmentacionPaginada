@@ -28,29 +28,29 @@ const Dashboard = ({ metrics, logs }) => (
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
         <MetricCard
           label="USO RAM"
-          value={`${metrics.ramUsagePct}%`}
-          percent={metrics.ramUsagePct}
+          value={`${metrics.ramUsage}%`}
+          percent={metrics.ramUsage}
           color="var(--tertiary)"
-          subValue={`${metrics.ramUsedKB} KB / ${metrics.ramTotalKB} KB`}
+          subValue={`${metrics.occupiedFrames} / ${metrics.totalFrames} marcos ocupados`}
         />
         <MetricCard
-          label="FRAGMENTACIÓN EXT."
-          value={`${metrics.fragPct}%`}
-          percent={metrics.fragPct}
-          color={metrics.fragPct > 30 ? '#ef4444' : 'var(--accent-orange)'}
-          subValue={`${metrics.freeHoles} huecos libres · ${metrics.fragKB} KB`}
+          label="MARCOS LIBRES"
+          value={metrics.freeFrames}
+          percent={Math.round((metrics.freeFrames / metrics.totalFrames) * 100)}
+          color="var(--secondary)"
+          subValue={`${metrics.diskPageCount} páginas en disco`}
         />
         <MetricCard
-          label="SEG FAULTS"
-          value={`${metrics.segFaults}`}
-          percent={metrics.totalAccesses > 0 ? Math.round((metrics.segFaults / metrics.totalAccesses) * 100) : 0}
+          label="PAGE FAULTS"
+          value={metrics.pageFaults}
+          percent={metrics.totalAccesses > 0 ? Math.round((metrics.pageFaults / metrics.totalAccesses) * 100) : 0}
           color="#ef4444"
           subValue={`${metrics.totalAccesses} accesos totales`}
         />
         <MetricCard
           label="TLB HIT RATE"
-          value={metrics.tlbAccesses > 0 ? `${Math.round((metrics.tlbHits / metrics.tlbAccesses) * 100)}%` : 'N/A'}
-          percent={metrics.tlbAccesses > 0 ? Math.round((metrics.tlbHits / metrics.tlbAccesses) * 100) : 0}
+          value={metrics.tlbAccesses > 0 ? `${metrics.tlbHitRate}%` : 'N/A'}
+          percent={metrics.tlbHitRate || 0}
           color="var(--accent-cyan)"
           subValue={`Hits: ${metrics.tlbHits} / ${metrics.tlbAccesses}`}
         />

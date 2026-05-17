@@ -23,44 +23,43 @@ const HelpModal = ({ isOpen, onClose }) => {
           </div>
 
           <div className="help-section">
-            <h3><Info size={18} /> ¿Qué es la Segmentación Simple?</h3>
+            <h3><Info size={18} /> ¿Qué es la Segmentación Paginada?</h3>
             <p>
-              Es un esquema de gestión de memoria donde el espacio de direcciones de un proceso se divide en
-              <strong> segmentos de tamaño variable</strong> con significado lógico: Código, Datos, Heap y Pila.
-              Cada segmento se ubica en un bloque <strong>contiguo</strong> en la RAM física, pero los segmentos
-              entre sí pueden estar <strong>separados</strong>. Esto provoca <strong>Fragmentación Externa</strong>
-              (huecos entre segmentos).
+              Combina lo mejor de ambos mundos: el proceso se divide en <strong>segmentos lógicos</strong>
+              (Código, Datos, Heap, Pila) y cada segmento se subdivide en <strong>páginas de tamaño fijo</strong>.
+              Las páginas se ubican en <strong>marcos no contiguos</strong> de RAM. Usa
+              <strong> paginación por demanda</strong>: al crear un proceso, todas sus páginas inician en DISCO
+              y solo se cargan en RAM cuando se acceden (PAGE FAULT).
             </p>
           </div>
 
           <div className="help-grid">
             <div className="help-card">
               <h4><Cpu size={14} style={{ color: 'var(--primary)' }} /> CPU</h4>
-              <p style={{ fontSize: '0.75rem' }}>Configura el tamaño de cada segmento (Código, Datos, Heap, Pila) y genera direcciones lógicas &lt;Segmento, Offset&gt;. Haz clic en el ▶ de la tabla de segmentos para simular un acceso.</p>
+              <p style={{ fontSize: '0.75rem' }}>Configura el tamaño de cada segmento y genera direcciones lógicas &lt;Seg, Offset&gt;. El Offset se descompone automáticamente en PágNum + OffsetDentroDelMarco.</p>
             </div>
             <div className="help-card">
-              <h4><Binary size={14} style={{ color: 'var(--secondary)' }} /> MMU y Tabla de Segmentos</h4>
-              <p style={{ fontSize: '0.75rem' }}>Traduce la dirección lógica a física: Dir. Física = Base[Seg] + Offset. Valida que Offset &lt; Límite. Si no, lanza un <strong>Segmentation Fault (Trap)</strong>.</p>
+              <h4><Binary size={14} style={{ color: 'var(--secondary)' }} /> MMU (2 niveles)</h4>
+              <p style={{ fontSize: '0.75rem' }}>Traduce en 2 pasos: 1º consulta la <strong>Tabla de Segmentos</strong> (según segNum), 2º consulta la <strong>Tabla de Páginas</strong> del segmento (según págNum). Dir. Física = Marco × TamPág + Offset.</p>
             </div>
             <div className="help-card">
               <h4><Zap size={14} style={{ color: 'var(--accent-cyan)' }} /> TLB (Caché)</h4>
-              <p style={{ fontSize: '0.75rem' }}>Guarda las traducciones de segmento recientes (Base + Límite) para evitar consultar la Tabla de Segmentos en RAM en cada acceso.</p>
+              <p style={{ fontSize: '0.75rem' }}>Guarda la traducción (PID, SegNum, PágNum) → Marco para evitar consultar ambas tablas en RAM. Solo almacena páginas que están en RAM (bit V=1).</p>
             </div>
             <div className="help-card">
-              <h4><Layers size={14} style={{ color: 'var(--tertiary)' }} /> First / Best / Worst Fit</h4>
-              <p style={{ fontSize: '0.75rem' }}>Al cargar un segmento en la RAM, el SO busca un hueco libre usando el algoritmo seleccionado. Si no hay espacio, usa la <strong>Compactación</strong> para consolidar los huecos.</p>
+              <h4><Layers size={14} style={{ color: 'var(--tertiary)' }} /> PAGE FAULT</h4>
+              <p style={{ fontSize: '0.75rem' }}>Cuando bit V=0 (página en disco), el SO toma el control, carga la página al primer marco libre. Si la RAM está llena, usa <strong>FIFO o LRU</strong> para expulsar una página víctima al disco.</p>
             </div>
           </div>
 
           <div className="help-section" style={{ marginTop: '1.5rem' }}>
             <h3>¿Cómo usar el simulador?</h3>
             <ol style={{ fontSize: '0.85rem', color: 'var(--text-muted)', paddingLeft: '1.2rem' }}>
-              <li style={{ marginBottom: '0.5rem' }}>Configura el tamaño de cada segmento en la CPU y haz clic en <strong>Crear Proceso</strong>. El SO buscará huecos en la RAM para cada segmento.</li>
-              <li style={{ marginBottom: '0.5rem' }}>Selecciona el algoritmo de asignación (<strong>FIRST</strong>, <strong>BEST</strong> o <strong>WORST</strong> Fit) en el header.</li>
-              <li style={{ marginBottom: '0.5rem' }}>Activa <strong>TLB</strong> y <strong>PASO A PASO</strong> para ver en detalle cada ciclo de traducción de dirección.</li>
-              <li style={{ marginBottom: '0.5rem' }}>Haz clic en el ▶ de cualquier segmento de la Tabla de Segmentos para simular un acceso y ver si es HIT, MISS o <strong>SEG FAULT</strong>.</li>
-              <li style={{ marginBottom: '0.5rem' }}>Cuando la RAM esté fragmentada, usa el botón <strong>⚡ Compactar RAM</strong> para consolidar todos los huecos libres.</li>
-              <li>Activa <strong>HUECOS LIBRES</strong> para ver la lista que el SO mantiene de los espacios disponibles.</li>
+              <li style={{ marginBottom: '0.5rem' }}>Configura el tamaño de cada segmento en la CPU y haz clic en <strong>Crear Proceso</strong>. Todas las páginas inician en <strong>DISCO</strong>.</li>
+              <li style={{ marginBottom: '0.5rem' }}>Haz clic en el ▶ de cualquier segmento para simular un acceso. Si la página no está en RAM, verás un <strong>PAGE FAULT</strong> animado.</li>
+              <li style={{ marginBottom: '0.5rem' }}>Activa <strong>TLB</strong> para ver TLB HITs y MISSes. Activa <strong>PASO A PASO</strong> para ver cada etapa del proceso de traducción.</li>
+              <li style={{ marginBottom: '0.5rem' }}>Ajusta el <strong>Offset</strong> en la CPU para acceder a diferentes páginas del mismo segmento.</li>
+              <li>Cuando la RAM esté llena, el algoritmo <strong>FIFO o LRU</strong> seleccionará una página víctima para expulsar al disco y hacer espacio.</li>
             </ol>
           </div>
 

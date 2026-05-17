@@ -1,188 +1,150 @@
 /**
  * buildSimulationSteps.js
- * Construye la cola de pasos para el modo Paso a Paso.
- * Cada paso: { action, desc, execute }
+ * Cola de pasos para el modo "Paso a Paso" — acceso NORMAL (página ya en RAM).
+ *
+ * Flujo sin TLB:
+ *   CPU → MMU → Tabla Segmentos → Tabla Páginas → RAM
+ *
+ * Flujo con TLB HIT:
+ *   CPU → MMU → TLB HIT → RAM  (saltea tablas en memoria)
+ *
+ * Flujo con TLB MISS:
+ *   CPU → MMU → TLB MISS → Tabla Segmentos → Tabla Páginas → TLB UPDATE → RAM
  */
-
-import { translate, checkTlb, updateTlb } from './addressTranslation.js';
 
 /**
  * buildAccessSteps
- * Genera los pasos para simular un acceso a memoria lógica <segNum, offset>
+ * @param {object} params
+ * @returns {Array} steps — [{ action, desc, execute }]
  */
 export function buildAccessSteps({
-  proc, segNum, offset,
+  pid, segIdx, pageNum, frame, pageSizeKB, frameOffset,
   isTlbEnabled, tlbEntries,
-  setFlowAction, setActiveSegNum, setActiveRamBase,
-  setIsTlbHit, setTlbStats, setTlbEntries,
-  addLog,
+  setFlowAction, setActiveSegNum, setActiveFrame,
+  setIsTlbHit, setTlbStats, setTlbEntries, addLog,
 }) {
   const steps = [];
-  const segment = proc.segments[segNum];
 
-  // Paso 1: CPU → MMU
+  // ── Paso 1: CPU → MMU ─────────────────────────────────────────
   steps.push({
     action: 'CPU_TO_MMU',
-    desc: `CPU envía dirección lógica: <Segmento ${segNum}, Offset ${offset}> del proceso ${proc.id}`,
+    desc: `CPU genera dirección lógica → Seg ${segIdx}, Pág ${pageNum}. La envía a la MMU.`,
     execute: () => {
       setFlowAction('CPU_TO_MMU');
-      setActiveSegNum(segNum);
+      setActiveSegNum(segIdx);
     },
   });
 
   if (isTlbEnabled) {
-    const hit = checkTlb(tlbEntries, proc.id, segNum);
-
-    // Paso 2: Buscar en TLB
+    // ── Paso 2: Buscar en TLB ─────────────────────────────────
     steps.push({
       action: 'TLB_SEARCH',
-      desc: `MMU busca en la TLB: ${proc.id} Segmento ${segNum}`,
+      desc: `MMU busca (Seg ${segIdx}, Pág ${pageNum}) en la TLB antes de consultar las tablas en RAM.`,
       execute: () => {
         setFlowAction('TLB_SEARCH');
         setTlbStats(prev => ({ ...prev, accesses: prev.accesses + 1 }));
       },
     });
 
-    if (hit) {
-      // Verificar límite desde TLB
-      if (offset >= hit.limit) {
-        steps.push({
-          action: 'SEG_FAULT',
-          desc: `🚫 ¡SEGMENTATION FAULT! (TLB) Offset ${offset} ≥ Límite ${hit.limit}`,
-          execute: () => {
-            setFlowAction('SEG_FAULT');
-            setTlbStats(prev => ({ ...prev, hits: prev.hits + 1 }));
-            setIsTlbHit(true);
-            addLog(`TLB HIT luego SEG FAULT: ${proc.id} Seg ${segNum} — Offset ${offset} ≥ ${hit.limit}`, 'error');
-          },
-        });
-      } else {
-        steps.push({
-          action: 'TLB_HIT',
-          desc: `✅ TLB HIT! Segmento ${segNum} → Base=${hit.base} KB (sin consultar tabla)`,
-          execute: () => {
-            setIsTlbHit(true);
-            setTlbStats(prev => ({ ...prev, hits: prev.hits + 1 }));
-            setFlowAction('TLB_HIT');
-            addLog(`TLB HIT: ${proc.id} Seg ${segNum} → Base ${hit.base} KB, Dir. Física = ${hit.base + offset} KB`, 'success');
-          },
-        });
-        steps.push({
-          action: 'MMU_TO_RAM',
-          desc: `Acceso directo al bloque de RAM en base ${hit.base} KB (Dir. Física = ${hit.base + offset} KB)`,
-          execute: () => {
-            setFlowAction('MMU_TO_RAM');
-            setActiveRamBase(hit.base);
-          },
-        });
-      }
-    } else {
-      // TLB MISS
+    const tlbHit = tlbEntries.find(
+      e => e.procId === pid && e.segNum === segIdx && e.pageNum === pageNum
+    );
+
+    if (tlbHit) {
+      // ── TLB HIT ──────────────────────────────────────────────
       steps.push({
-        action: 'TLB_MISS',
-        desc: `TLB MISS: Segmento ${segNum} no está en caché → consultar Tabla de Segmentos`,
+        action: 'TLB_HIT',
+        desc: `TLB HIT ✅ — Traducción encontrada en caché: Seg ${segIdx} Pág ${pageNum} → Marco F${tlbHit.frame}. No se accede a tablas en RAM.`,
         execute: () => {
+          setIsTlbHit(true);
+          setTlbStats(prev => ({ ...prev, hits: prev.hits + 1 }));
+          setFlowAction('TLB_HIT');
+          addLog(`TLB HIT: Seg ${segIdx} Pág ${pageNum} → Marco F${tlbHit.frame}`, 'success');
+        },
+      });
+
+      steps.push({
+        action: 'MMU_TO_RAM',
+        desc: `MMU genera dirección física: F${tlbHit.frame} × ${pageSizeKB}KB + ${frameOffset} KB. Accediendo a RAM...`,
+        execute: () => {
+          setFlowAction('MMU_TO_RAM');
+          setActiveFrame(tlbHit.frame);
+        },
+      });
+
+      steps.push({
+        action: 'DONE',
+        desc: `✅ Acceso completado. Dir. Física = ${tlbHit.frame * pageSizeKB + frameOffset} KB.`,
+        execute: () => {
+          setFlowAction(null);
           setIsTlbHit(false);
-          setFlowAction('TLB_MISS');
-          addLog(`TLB MISS: ${proc.id} Seg ${segNum} no en TLB`, 'warning');
+          setActiveSegNum(null);
+          setActiveFrame(null);
         },
       });
 
-      if (!segment || segment.base === null) {
-        steps.push({
-          action: 'SEG_FAULT',
-          desc: `⚠️ Segmento ${segNum} no está cargado en RAM (base = null)`,
-          execute: () => {
-            setFlowAction('SEG_FAULT');
-            addLog(`Segmento ${segNum} de ${proc.id} no está en RAM`, 'error');
-          },
-        });
-      } else {
-        const { ok, physicalAddress, error } = translate(segment, offset);
-
-        steps.push({
-          action: 'TLB_UPDATE',
-          desc: `TLB actualizada: ${proc.id} Seg ${segNum} → Base ${segment.base} KB, Límite ${segment.limit} KB`,
-          execute: () => {
-            setTlbEntries(prev => updateTlb(prev, proc.id, segNum, segment.base, segment.limit));
-            addLog(`TLB UPDATE: ${proc.id} Seg ${segNum} guardado`);
-          },
-        });
-
-        steps.push({
-          action: 'MMU_SEARCH',
-          desc: `MMU consulta Tabla de Segmentos: Seg ${segNum} → Base=${segment.base}, Límite=${segment.limit}`,
-          execute: () => setFlowAction('MMU_SEARCH'),
-        });
-
-        if (ok) {
-          steps.push({
-            action: 'MMU_TO_RAM',
-            desc: `Verificación OK (${offset} < ${segment.limit}) → Dir. Física = ${physicalAddress} KB`,
-            execute: () => {
-              setFlowAction('MMU_TO_RAM');
-              setActiveRamBase(segment.base);
-              addLog(`Acceso OK: Dir. Física = ${physicalAddress} KB`, 'success');
-            },
-          });
-        } else {
-          steps.push({
-            action: 'SEG_FAULT',
-            desc: `🚫 ${error}`,
-            execute: () => {
-              setFlowAction('SEG_FAULT');
-              addLog(error, 'error');
-            },
-          });
-        }
-      }
+      return steps; // Termina aquí por TLB HIT
     }
-  } else {
-    // Sin TLB
-    if (!segment || segment.base === null) {
-      steps.push({
-        action: 'SEG_FAULT',
-        desc: `Segmento ${segNum} no está cargado en RAM`,
-        execute: () => {
-          setFlowAction('SEG_FAULT');
-          addLog(`Segmento ${segNum} de ${proc.id} no está en RAM`, 'error');
-        },
-      });
-    } else {
-      const { ok, physicalAddress, error } = translate(segment, offset);
-      steps.push({
-        action: 'MMU_SEARCH',
-        desc: `MMU consulta Tabla de Segmentos: Seg ${segNum} → Base=${segment.base}, Límite=${segment.limit}`,
-        execute: () => setFlowAction('MMU_SEARCH'),
-      });
 
-      if (ok) {
-        steps.push({
-          action: 'MMU_TO_RAM',
-          desc: `Verificación OK (offset ${offset} < límite ${segment.limit}) → Dir. Física = ${physicalAddress} KB`,
-          execute: () => {
-            setFlowAction('MMU_TO_RAM');
-            setActiveRamBase(segment.base);
-            addLog(`Acceso OK: Dir. Física = ${physicalAddress} KB`, 'success');
-          },
-        });
-      } else {
-        steps.push({
-          action: 'SEG_FAULT',
-          desc: `🚫 ${error}`,
-          execute: () => {
-            setFlowAction('SEG_FAULT');
-            addLog(error, 'error');
-          },
-        });
-      }
-    }
+    // ── TLB MISS ──────────────────────────────────────────────
+    steps.push({
+      action: 'TLB_MISS',
+      desc: `TLB MISS ❌ — (Seg ${segIdx}, Pág ${pageNum}) no está en caché. MMU debe consultar las tablas en memoria principal.`,
+      execute: () => {
+        setIsTlbHit(false);
+        setFlowAction('TLB_MISS');
+        addLog(`TLB MISS: Seg ${segIdx} Pág ${pageNum} — consultando tablas en RAM`, 'warning');
+      },
+    });
   }
 
+  // ── Paso: Tabla de Segmentos ─────────────────────────────────
+  steps.push({
+    action: 'MMU_SEARCH',
+    desc: `MMU consulta Tabla de Segmentos → encuentra Seg ${segIdx}. Ahora busca en su Tabla de Páginas.`,
+    execute: () => {
+      setFlowAction('MMU_SEARCH');
+    },
+  });
+
+  // ── Paso: Tabla de Páginas ───────────────────────────────────
+  steps.push({
+    action: 'PAGE_TABLE_HIT',
+    desc: `Tabla de Páginas de Seg ${segIdx}: Pág ${pageNum} → Marco F${frame} (bit V=1, página en RAM). ✅`,
+    execute: () => {
+      setFlowAction('PAGE_TABLE_HIT');
+      if (isTlbEnabled) {
+        setTlbEntries(prev => {
+          const filtered = prev.filter(
+            e => !(e.procId === pid && e.segNum === segIdx && e.pageNum === pageNum)
+          );
+          return [{ procId: pid, segNum: segIdx, pageNum, frame }, ...filtered].slice(0, 4);
+        });
+        addLog(`TLB UPDATE: (Seg ${segIdx}, Pág ${pageNum}) → F${frame} guardado en caché`, 'info');
+      }
+    },
+  });
+
+  // ── Paso: MMU → RAM ──────────────────────────────────────────
+  steps.push({
+    action: 'MMU_TO_RAM',
+    desc: `MMU genera dirección física: F${frame} × ${pageSizeKB}KB + ${frameOffset} KB. Accediendo a Marco F${frame} en RAM...`,
+    execute: () => {
+      setFlowAction('MMU_TO_RAM');
+      setActiveFrame(frame);
+    },
+  });
+
+  // ── Paso final ───────────────────────────────────────────────
   steps.push({
     action: 'DONE',
-    desc: `✅ Ciclo de traducción completado para Seg ${segNum}, Offset ${offset}`,
-    execute: () => setFlowAction(null),
+    desc: `✅ Acceso completado. Dir. Física = ${frame * pageSizeKB + frameOffset} KB. Marco F${frame} devuelve el dato.`,
+    execute: () => {
+      setFlowAction(null);
+      setIsTlbHit(false);
+      setActiveSegNum(null);
+      setActiveFrame(null);
+    },
   });
 
   return steps;
