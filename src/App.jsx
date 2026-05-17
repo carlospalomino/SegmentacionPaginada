@@ -158,7 +158,22 @@ function App() {
     setPageFaults(data.pageFaults || 0);
     setNextPid(data.nextPid);
     setSelectedProcessId(data.processes[0]?.id || null);
-    setFreeFrameList([]);
+    
+    const totalFrames = Math.floor(ramSizeKB / pageSizeKB);
+    const occupied = new Set();
+    data.processes.forEach(p => {
+      p.segments.forEach(seg => {
+        seg.pageTable.forEach(pg => {
+          if (pg.valid && pg.frame !== null) occupied.add(pg.frame);
+        });
+      });
+    });
+    const initialFreeFrames = [];
+    for (let i = 0; i < totalFrames; i++) {
+      if (!occupied.has(i)) initialFreeFrames.push(i);
+    }
+    setFreeFrameList(initialFreeFrames);
+
     frameQueueRef.current = [];
     frameLastAccessRef.current = {};
     
@@ -178,7 +193,7 @@ function App() {
       setLogs(data.logs);
     }
     setFlowAction(null);
-  }, []);
+  }, [ramSizeKB, pageSizeKB]);
 
   const addProcess = useCallback(async () => {
     setActiveScenarioId(null);
