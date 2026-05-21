@@ -138,6 +138,11 @@ function App() {
 
   // ── CARGAR ESCENARIO ──────────────────────────────────────────
   const handleLoadScenario = useCallback((scenario) => {
+    const newRamSize = scenario.ramSizeKB || DEFAULT_RAM_KB;
+    const newPageSize = scenario.pageSizeKB || DEFAULT_PAGE_KB;
+    
+    setRamSizeKB(newRamSize);
+    setPageSizeKB(newPageSize);
     setActiveScenarioId(scenario.id);
     const data = scenario.setup();
     
@@ -166,7 +171,7 @@ function App() {
     setNextPid(data.nextPid);
     setSelectedProcessId(data.processes[0]?.id || null);
     
-    const totalFrames = Math.floor(ramSizeKB / pageSizeKB);
+    const totalFrames = Math.floor(newRamSize / newPageSize);
     const occupied = new Set();
     data.processes.forEach(p => {
       p.segments.forEach(seg => {
@@ -200,7 +205,7 @@ function App() {
       setLogs(data.logs);
     }
     setFlowAction(null);
-  }, [ramSizeKB, pageSizeKB]);
+  }, []);
 
   const addProcess = useCallback(async () => {
     setActiveScenarioId(null);
@@ -502,9 +507,10 @@ function App() {
   };
 
   // ── RESET ─────────────────────────────────────────────────────
-  const resetSimulator = useCallback(() => {
+  const resetSimulator = useCallback((customTotalFrames) => {
+    const framesCount = typeof customTotalFrames === 'number' ? customTotalFrames : TOTAL_FRAMES;
     setProcesses([]); setDiskPages([]); setNextPid(1); setSelectedProcessId(null);
-    setFreeFrameList(Array.from({ length: TOTAL_FRAMES }, (_, i) => i));
+    setFreeFrameList(Array.from({ length: framesCount }, (_, i) => i));
     setTlbEntries([]); setTlbStats({ hits: 0, accesses: 0 }); setIsTlbHit(false);
     setFlowAction(null); setActiveSegNum(null); setActiveFrame(null); setEvictingFrame(null);
     setActiveDiskEntry(null); setPageFaults(0); setTotalAccesses(0); setLogs([]);
@@ -512,10 +518,10 @@ function App() {
     frameQueueRef.current = []; frameLastAccessRef.current = {};
   }, [TOTAL_FRAMES]);
 
-  const handleApplySettings = () => {
-    setFreeFrameList(Array.from({ length: Math.floor(ramSizeKB / pageSizeKB) }, (_, i) => i));
-    resetSimulator();
-  };
+  const handleApplySettings = useCallback((newRam, newPage) => {
+    const totalFrames = Math.floor(newRam / newPage);
+    resetSimulator(totalFrames);
+  }, [resetSimulator]);
 
   const diskSizeKB = ramSizeKB * 2;
 

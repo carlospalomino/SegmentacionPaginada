@@ -15,7 +15,7 @@ const Settings = ({ isOpen, onClose, ramSizeKB, setRamSizeKB, pageSizeKB, setPag
   const handleApply = () => {
     setRamSizeKB(localRam);
     setPageSizeKB(localPage);
-    onApply();
+    onApply(localRam, localPage);
     onClose();
   };
 

@@ -33,6 +33,8 @@ export const ACADEMIC_SCENARIOS = [
   {
     id: 'frag-ext',
     title: 'Adiós a la Fragmentación Externa',
+    ramSizeKB: 128,
+    pageSizeKB: 4,
     description: 'La RAM está llena de "huecos" (marcos intercalados libres). Intentamos crear un proceso nuevo (P3). Gracias a la paginación subyacente, sus páginas se dispersan exitosamente en los huecos no contiguos.',
     setup: () => {
       // P1 y P2 intercalados para fragmentar la RAM.
@@ -62,6 +64,8 @@ export const ACADEMIC_SCENARIOS = [
   {
     id: 'dynamic-growth',
     title: 'Crecimiento Dinámico sin Reubicación',
+    ramSizeKB: 64,
+    pageSizeKB: 4,
     description: 'El Heap de P1 (4 KB) está rodeado de otras páginas. Haz clic en "Crecer Segmento" (+4 KB). En lugar de fallar o reubicar todo el segmento, simplemente se le asigna un marco libre aleatorio a la nueva página.',
     setup: () => {
       // P1 tiene un Heap de 4KB (1 página) en el frame 5.
@@ -91,6 +95,8 @@ export const ACADEMIC_SCENARIOS = [
   {
     id: 'shared-code',
     title: 'Librerías Compartidas (Código Compartido)',
+    ramSizeKB: 64,
+    pageSizeKB: 4,
     description: 'P1 y P2 ejecutan el mismo programa. Observa cómo sus Segmentos "Código" (ambos de 8 KB) apuntan exactamente a los mismos marcos físicos (Frames 0 y 1), ahorrando memoria RAM.',
     setup: () => {
       const p1Segs = [
@@ -121,6 +127,8 @@ export const ACADEMIC_SCENARIOS = [
   {
     id: 'internal-frag',
     title: 'Costo de la Fragmentación Interna',
+    ramSizeKB: 64,
+    pageSizeKB: 4,
     description: 'P1 se creó con tamaños irregulares (Código: 5KB, Datos: 3KB). Al usar páginas de 4KB, observa el residuo (espacio desperdiciado) que sufre CADA segmento únicamente en su última página.',
     setup: () => {
       const p1Segs = [
