@@ -81,6 +81,8 @@ function App() {
   // Refs para FIFO/LRU
   const frameQueueRef = useRef([]);
   const frameLastAccessRef = useRef({});
+  // Snapshots para modo paso a paso (permite retroceder pasos correctamente)
+  const stepSnapshotsRef = useRef([]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
@@ -144,7 +146,7 @@ function App() {
     setRamSizeKB(newRamSize);
     setPageSizeKB(newPageSize);
     setActiveScenarioId(scenario.id);
-    const data = scenario.setup();
+    const data = scenario.setup(newPageSize);
     
     // Auto-generar diskPages: solo páginas que NO están en RAM (valid=false)
     const newDiskPages = [];
@@ -273,7 +275,20 @@ function App() {
     if (proc) {
       const framesToRelease = [];
       proc.segments.forEach(s => {
-        s.pageTable.forEach(pg => { if (pg.valid && pg.frame !== null) framesToRelease.push(pg.frame); });
+        s.pageTable.forEach(pg => {
+          if (pg.valid && pg.frame !== null) {
+            // No liberar si otro proceso activo comparte el mismo marco físico
+            const isSharedFrame = processes.some(other =>
+              other.id !== id &&
+              other.segments.some(os =>
+                os.pageTable.some(opg => opg.valid && opg.frame === pg.frame)
+              )
+            );
+            if (!isSharedFrame) {
+              framesToRelease.push(pg.frame);
+            }
+          }
+        });
       });
       if (framesToRelease.length > 0) {
         setFreeFrameList(prev => [...prev, ...framesToRelease].sort((a, b) => a - b));
@@ -391,6 +406,27 @@ function App() {
     return assignedFrame;
   }, [freeFrameList, processes, replacementAlgo, isTlbEnabled, addLog]);
 
+  // ── SNAPSHOT (para modo paso a paso) ────────────────────────────
+  const captureSnapshot = useCallback(() => ({
+    processes,
+    diskPages,
+    freeFrameList: [...freeFrameList],
+    tlbEntries:    [...tlbEntries],
+    pageFaults,
+    frameQueue:    [...frameQueueRef.current],
+    frameLastAccess: { ...frameLastAccessRef.current },
+  }), [processes, diskPages, freeFrameList, tlbEntries, pageFaults]);
+
+  const restoreSnapshot = (snap) => {
+    setProcesses(snap.processes);
+    setDiskPages(snap.diskPages);
+    setFreeFrameList(snap.freeFrameList);
+    setTlbEntries(snap.tlbEntries);
+    setPageFaults(snap.pageFaults);
+    frameQueueRef.current = [...snap.frameQueue];
+    frameLastAccessRef.current = { ...snap.frameLastAccess };
+  };
+
   // ── SIMULAR ACCESO ────────────────────────────────────────────
   const selectedProcess = useMemo(() => processes.find(p => p.id === selectedProcessId), [processes, selectedProcessId]);
 
@@ -433,6 +469,8 @@ function App() {
           frameQueueRef, frameLastAccessRef,
         });
         if (error) { addLog(error, 'error'); setIsTranslating(false); return; }
+        // Snapshot inicial (estado antes del paso 0) para poder retroceder
+        stepSnapshotsRef.current = [captureSnapshot()];
         setStepQueue(steps); setCurrentStepIndex(0); steps[0].execute();
         return;
       }
@@ -454,6 +492,8 @@ function App() {
         setFlowAction, setActiveSegNum, setActiveFrame,
         setIsTlbHit, setTlbStats, setTlbEntries, addLog,
       });
+      // Snapshot inicial (estado antes del paso 0) para poder retroceder
+      stepSnapshotsRef.current = [captureSnapshot()];
       setStepQueue(steps); setCurrentStepIndex(0); steps[0].execute();
       return;
     }
@@ -488,25 +528,30 @@ function App() {
     setFlowAction(null); setActiveSegNum(null); setActiveFrame(null);
     setIsTranslating(false); setIsTlbHit(false);
   }, [isTranslating, selectedProcess, offset, pageSizeKB, isTlbEnabled, tlbEntries, stepByStepMode,
-    processes, freeFrameList, replacementAlgo, handlePageFault, incrementSimCounter, addLog]);
+    processes, freeFrameList, replacementAlgo, handlePageFault, incrementSimCounter, addLog, captureSnapshot]);
 
   // ── PASO A PASO ───────────────────────────────────────────────
+  // captureSnapshot y restoreSnapshot están definidos arriba (antes de simulateAccess)
   const nextStep = () => {
     if (currentStepIndex >= stepQueue.length - 1) { cancelSteps(); return; }
     const next = currentStepIndex + 1;
+    stepSnapshotsRef.current[next] = captureSnapshot();
     setCurrentStepIndex(next);
     stepQueue[next].execute();
   };
   const prevStep = () => {
     if (currentStepIndex <= 0) return;
-    setFlowAction(null); setActiveFrame(null); setIsTlbHit(false);
     const prev = currentStepIndex - 1;
-    for (let i = 0; i <= prev; i++) stepQueue[i].execute();
+    const snap = stepSnapshotsRef.current[prev];
+    if (snap) restoreSnapshot(snap);
+    setFlowAction(null); setActiveFrame(null); setIsTlbHit(false);
     setCurrentStepIndex(prev);
+    stepQueue[prev].execute();
   };
   const cancelSteps = () => {
     setStepQueue([]); setCurrentStepIndex(-1); setFlowAction(null);
     setIsTranslating(false); setIsTlbHit(false); setActiveSegNum(null); setActiveFrame(null);
+    stepSnapshotsRef.current = [];
   };
 
   // ── RESET ─────────────────────────────────────────────────────

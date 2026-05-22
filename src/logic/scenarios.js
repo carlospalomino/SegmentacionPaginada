@@ -4,11 +4,10 @@ import { SEG_TYPES } from '../constants/segTypes.js';
 const PROC_COLORS = ['#06b6d4', '#a855f7', '#ec4899', '#f59e0b', '#10b981', '#3b82f6'];
 
 // Helpers para construir escenarios
-const buildSeg = (typeKey, size, frames) => {
+const buildSeg = (typeKey, size, frames, pageSizeKB = 4) => {
   const t = SEG_TYPES.find(s => s.key === typeKey);
-  const pageSizeKB = 4;
   const numPages = Math.ceil(size / pageSizeKB);
-  
+
   const pageTable = [];
   for (let i = 0; i < numPages; i++) {
     const frame = frames[i] !== undefined ? frames[i] : null;
@@ -36,23 +35,23 @@ export const ACADEMIC_SCENARIOS = [
     ramSizeKB: 128,
     pageSizeKB: 4,
     description: 'La RAM está llena de "huecos" (marcos intercalados libres). Intentamos crear un proceso nuevo (P3). Gracias a la paginación subyacente, sus páginas se dispersan exitosamente en los huecos no contiguos.',
-    setup: () => {
+    setup: (pageSizeKB = 4) => {
       // P1 y P2 ocupan marcos PARES, dejando los IMPARES libres → RAM fragmentada.
       // Cada proceso tiene los 4 segmentos estándar: Code, Data, Heap, Stack.
       // P1: frames 0,2,4,6,8,10,12,14  (2 frames por segmento × 4 segs = 8 frames)
       // P2: frames 16,18,20,22,24,26,28,30  (2 frames por segmento × 4 segs = 8 frames)
       // Libres (impares): 1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31
       const p1Segs = [
-        buildSeg('code',  8, [0, 2]),
-        buildSeg('data',  8, [4, 6]),
-        buildSeg('heap',  8, [8, 10]),
-        buildSeg('stack', 8, [12, 14])
+        buildSeg('code',  8, [0, 2],   pageSizeKB),
+        buildSeg('data',  8, [4, 6],   pageSizeKB),
+        buildSeg('heap',  8, [8, 10],  pageSizeKB),
+        buildSeg('stack', 8, [12, 14], pageSizeKB)
       ];
       const p2Segs = [
-        buildSeg('code',  8, [16, 18]),
-        buildSeg('data',  8, [20, 22]),
-        buildSeg('heap',  8, [24, 26]),
-        buildSeg('stack', 8, [28, 30])
+        buildSeg('code',  8, [16, 18], pageSizeKB),
+        buildSeg('data',  8, [20, 22], pageSizeKB),
+        buildSeg('heap',  8, [24, 26], pageSizeKB),
+        buildSeg('stack', 8, [28, 30], pageSizeKB)
       ];
 
       return {
@@ -74,16 +73,16 @@ export const ACADEMIC_SCENARIOS = [
     ramSizeKB: 64,
     pageSizeKB: 4,
     description: 'El Heap de P1 (4 KB) está rodeado de otras páginas. Haz clic en "Crecer Segmento" (+4 KB). En lugar de fallar o reubicar todo el segmento, simplemente se le asigna un marco libre aleatorio a la nueva página.',
-    setup: () => {
+    setup: (pageSizeKB = 4) => {
       // P1 tiene un Heap de 4KB (1 página) en el frame 5.
       // P2 rodea a P1, ocupando frames 4 y 6.
       const p1Segs = [
-        buildSeg('code', 8, [0, 1]),
-        buildSeg('heap', 4, [5])
+        buildSeg('code', 8, [0, 1], pageSizeKB),
+        buildSeg('heap', 4, [5],    pageSizeKB)
       ];
       const p2Segs = [
-        buildSeg('code', 4, [4]),
-        buildSeg('data', 4, [6])
+        buildSeg('code', 4, [4], pageSizeKB),
+        buildSeg('data', 4, [6], pageSizeKB)
       ];
 
       return {
@@ -105,17 +104,17 @@ export const ACADEMIC_SCENARIOS = [
     ramSizeKB: 64,
     pageSizeKB: 4,
     description: 'P1 y P2 ejecutan el mismo programa. Observa cómo sus Segmentos "Código" (ambos de 8 KB) apuntan exactamente a los mismos marcos físicos (Frames 0 y 1), ahorrando memoria RAM.',
-    setup: () => {
+    setup: (pageSizeKB = 4) => {
       const p1Segs = [
-        buildSeg('code', 8, [0, 1]),
-        buildSeg('data', 4, [2]),
-        buildSeg('stack', 4, [3])
+        buildSeg('code',  8, [0, 1], pageSizeKB),
+        buildSeg('data',  4, [2],    pageSizeKB),
+        buildSeg('stack', 4, [3],    pageSizeKB)
       ];
-      
+
       const p2Segs = [
         { ...p1Segs[0], isShared: true }, // Copia exacta del segmento de código, apunta a [0, 1]
-        buildSeg('data', 4, [4]),
-        buildSeg('stack', 4, [5])
+        buildSeg('data',  4, [4], pageSizeKB),
+        buildSeg('stack', 4, [5], pageSizeKB)
       ];
 
       return {
@@ -137,12 +136,12 @@ export const ACADEMIC_SCENARIOS = [
     ramSizeKB: 64,
     pageSizeKB: 4,
     description: 'P1 se creó con tamaños irregulares (Código: 5KB, Datos: 3KB). Al usar páginas de 4KB, observa el residuo (espacio desperdiciado) que sufre CADA segmento únicamente en su última página.',
-    setup: () => {
+    setup: (pageSizeKB = 4) => {
       const p1Segs = [
-        buildSeg('code', 5, [0, 1]), // Ocupa 2 páginas, desperdicia 3KB en el frame 1
-        buildSeg('data', 3, [2]),    // Ocupa 1 página, desperdicia 1KB en el frame 2
-        buildSeg('heap', 6, [3, 4]), // Ocupa 2 páginas, desperdicia 2KB en el frame 4
-        buildSeg('stack', 4, [5])    // Ocupa 1 página exacta, desperdicia 0KB
+        buildSeg('code',  5, [0, 1], pageSizeKB), // Ocupa 2 páginas, desperdicia 3KB en el frame 1
+        buildSeg('data',  3, [2],    pageSizeKB), // Ocupa 1 página, desperdicia 1KB en el frame 2
+        buildSeg('heap',  6, [3, 4], pageSizeKB), // Ocupa 2 páginas, desperdicia 2KB en el frame 4
+        buildSeg('stack', 4, [5],    pageSizeKB)  // Ocupa 1 página exacta, desperdicia 0KB
       ];
 
       return {
