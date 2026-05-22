@@ -37,15 +37,22 @@ export const ACADEMIC_SCENARIOS = [
     pageSizeKB: 4,
     description: 'La RAM está llena de "huecos" (marcos intercalados libres). Intentamos crear un proceso nuevo (P3). Gracias a la paginación subyacente, sus páginas se dispersan exitosamente en los huecos no contiguos.',
     setup: () => {
-      // P1 y P2 intercalados para fragmentar la RAM.
-      // Llenaremos los marcos pares, dejando los impares libres.
+      // P1 y P2 ocupan marcos PARES, dejando los IMPARES libres → RAM fragmentada.
+      // Cada proceso tiene los 4 segmentos estándar: Code, Data, Heap, Stack.
+      // P1: frames 0,2,4,6,8,10,12,14  (2 frames por segmento × 4 segs = 8 frames)
+      // P2: frames 16,18,20,22,24,26,28,30  (2 frames por segmento × 4 segs = 8 frames)
+      // Libres (impares): 1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31
       const p1Segs = [
-        buildSeg('code', 16, [0, 2, 4, 6]),
-        buildSeg('data', 16, [8, 10, 12, 14])
+        buildSeg('code',  8, [0, 2]),
+        buildSeg('data',  8, [4, 6]),
+        buildSeg('heap',  8, [8, 10]),
+        buildSeg('stack', 8, [12, 14])
       ];
       const p2Segs = [
-        buildSeg('heap', 16, [16, 18, 20, 22]),
-        buildSeg('stack', 16, [24, 26, 28, 30])
+        buildSeg('code',  8, [16, 18]),
+        buildSeg('data',  8, [20, 22]),
+        buildSeg('heap',  8, [24, 26]),
+        buildSeg('stack', 8, [28, 30])
       ];
 
       return {
@@ -57,7 +64,7 @@ export const ACADEMIC_SCENARIOS = [
         diskPages: [],
         tlbEntries: [],
         pageFaults: 0,
-        logs: [{ id: Date.now(), time: new Date().toLocaleTimeString(), msg: 'Escenario cargado: Intenta crear un proceso P3 con segmentos grandes. Observa cómo ocupan los marcos libres sin importar que no sean contiguos.', type: 'info' }]
+        logs: [{ id: Date.now(), time: new Date().toLocaleTimeString(), msg: 'Escenario cargado: La RAM tiene 16 marcos libres pero intercalados (impares). Intenta crear un proceso P3 — sus páginas se dispersarán en esos huecos no contiguos gracias a la paginación.', type: 'info' }]
       };
     }
   },

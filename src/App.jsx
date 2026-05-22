@@ -146,23 +146,26 @@ function App() {
     setActiveScenarioId(scenario.id);
     const data = scenario.setup();
     
-    // Auto-generar diskPages basado en las tablas de páginas precargadas
+    // Auto-generar diskPages: solo páginas que NO están en RAM (valid=false)
     const newDiskPages = [];
     data.processes.forEach(p => {
       p.segments.forEach((seg, si) => {
         if (!seg.isShared) {
           seg.pageTable.forEach(pg => {
-            newDiskPages.push({
-              procId: p.id,
-              segIdx: si,
-              segType: seg.segType,
-              pageNum: pg.pageNum,
-              color: seg.color
-            });
+            if (!pg.valid) {
+              newDiskPages.push({
+                procId: p.id,
+                segIdx: si,
+                segType: seg.segType,
+                pageNum: pg.pageNum,
+                color: seg.color
+              });
+            }
           });
         }
       });
     });
+
 
     setProcesses(data.processes);
     setDiskPages(newDiskPages);
